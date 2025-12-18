@@ -55,14 +55,16 @@ def jeu_possible(L:list,c:int,l:int,diags:list,v:int,t:int)->list:
     elif t==2:
         for i in range(len(L)):
             for j in range(len(L[i])):
-                if L[i][j][0]==(2-v)and ((c-diags[0][0]*(c-i)==i and l-diags[0][1]*(c-j)==j)or(c-diags[1][0]*(c-i)==i and l-diags[1][1]*(c-j)==j)or (c-diags[2][0]*(c-i)==i and l-diags[2][1]*(c-j)==j)or(c-diags[3][0]*(c-i)==i and l-diags[3][1]*(c-j)==j))  #test diagonales:
-                    J[i]=1
-                elif L[i][j][0]==0:
-                    J[i]=2
-                else:
+                try:   
+                    if L[i][j][0]==(2-v)and ((c-diags[0][0]*(c-i)==i and l-diags[0][1]*(c-j)==j)or(c-diags[1][0]*(c-i)==i and l-diags[1][1]*(c-j)==j)or (c-diags[2][0]*(c-i)==i and l-diags[2][1]*(c-j)==j)or(c-diags[3][0]*(c-i)==i and l-diags[3][1]*(c-j)==j)) : 
+                    #test diagonales:        
+                        J[i]=1
+                    elif L[i][j][0]==0:
+                        J[i]=2
+                    else:
+                        J[i]=0
+                except IndexError:
                     J[i]=0
-                 except IndexError:
-                J[i]=0
                     
     return J
 def tour(L:list,c:int,l:int,v:int):
