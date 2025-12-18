@@ -14,17 +14,18 @@ def creation_de_jeu(L,c,l,N)->list:
         fn=int(input('nombre de ligne de pion,si tu notes rien on changera pas le nombre de ligne de pion'))
         if fn!=0 or fn!=None:
             N=fn
-        L = [ [ [0,0,(1+h%2-g%2)%2] for g in range(l)] for h in range (c)]
-        for i in range (c):
-            for k in range (l):
-                if i<=N:
+        if c>N*2:
+            L = [ [ [0,0,(1+h%2-g%2)%2] for g in range(l)] for h in range (c)]
+            for i in range (c):
+                for k in range (l):
+                    if i<=N:
                 #je regarde les cases où des pion peuvent etre poser
-                    if L[i][k][2]==1:
+                        if L[i][k][2]==1:
                     #je regarde les case noirs
-                        L[i][k][0] = 1
-                elif i>=c-N:
-                    if L[i][k][2]==1:
-                        L[i][k][0] = 2
+                            L[i][k][0] = 1
+                    elif i>=c-N:
+                        if L[i][k][2]==1:
+                            L[i][k][0] = 2
     return L,c,l,N
 def is_friendly(L:list,c:int,l:int,v:int):
     """test si le pion choisi est bien du joueur"""
@@ -60,6 +61,8 @@ def jeu_possible(L:list,c:int,l:int,diags:list,v:int,t:int)->list:
                     J[i]=2
                 else:
                     J[i]=0
+                 except IndexError:
+                J[i]=0
                     
     return J
 def tour(L:list,c:int,l:int,v:int):
@@ -70,7 +73,7 @@ def tour(L:list,c:int,l:int,v:int):
         while T:    
             i=int(input(print('quelle colone?'+'(1 à',c,')')))
             h=int(input(print('quelle ligne?'+'(1 à',l,')')))
-            diags=[[-1,1],[1,1],[1,-1],[-1,-1]]
+            diags=[[-1,1],[1,1],[-1,-1],[1,-1]]
             if is_friendly(L,i,h,v)==True:
                 T=False
             else:
