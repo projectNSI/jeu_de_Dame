@@ -18,14 +18,23 @@ def creation_de_jeu(L,c,l,N)->list:
             L = [ [ [0,0,(1+h%2-g%2)%2] for g in range(l)] for h in range (c)]
             for i in range (c):
                 for k in range (l):
-                    if i<=N:
+                    if i<N:
                 #je regarde les cases où des pion peuvent etre poser
                         if L[i][k][2]==1:
                     #je regarde les case noirs
                             L[i][k][0] = 1
-                    elif i>=c-N:
+                            #je place un pion noir
+                            L[i][k][1] = 1
+                            #je designe son type comme un pion
+                    elif i>c-N:
                         if L[i][k][2]==1:
+                            #je regarde les case noirs
                             L[i][k][0] = 2
+                            #je place un pion blanc
+                            L[i][k][1] = 1
+                            #je designe son type comme un pion
+        else:
+            print('impossible de creer le plateau de jeu avec ces parametres')
     return L,c,l,N
 def is_friendly(L:list,c:int,l:int,v:int):
     """test si le pion choisi est bien du joueur"""
