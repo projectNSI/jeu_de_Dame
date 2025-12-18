@@ -76,6 +76,13 @@ def jeu_possible(L:list,c:int,l:int,diags:list,v:int,t:int)->list:
                     J[i]=0
                     
     return J
+def team_exist(L:list,v:int)->bool:
+    """regarde si une equipe a gagner"""
+    for i in range(len(L)):
+        for j in range(len(L[i])):
+            if L[i][j][0]==v:
+                return True
+    return False
 def tour(L:list,c:int,l:int,v:int):
     """le deroulement d'un tour"""
     Y=True
@@ -122,18 +129,26 @@ def tour(L:list,c:int,l:int,v:int):
                     L[i+diags[d-1][0]][h+diags[d-1][1]][0]=0
                     L[i+2*diags[d-1][0]][h+2*diags[d-1][1]][0]=L[i][h][0]
                     L[i][h][0]=0
-                    Y=False
+                    
                 elif J[d-1]==2:
                     L[i+diags[d-1][0]][h+diags[d-1][1]][0]=L[i][h][0]
                     L[i][h][0]=0
-                    Y=False
+                    
                 else:
                     print('ce deplacement n est pas possible')
             else:
                 pass
         else:
             print('cette diagonale n existe pas')
-    return i,h
+    v+=1%2
+    Y=team_exist(L,v)
+    if v==0:
+        print('c est au tour des noirs')
+        q='noirs'
+    else:
+        print('c est au tour des blancs')
+        q='blancs'
+return(q,'a gagner') 
 
 
 def main():
@@ -141,7 +156,7 @@ def main():
 if __name__ == "__main__":
     assert main() is None
 
-J=[[],8,8,3]
+LJ=[[],8,8,3]
 L=J[0]
 c=J[1]
 l=J[2]
@@ -149,8 +164,6 @@ N=J[3]
 L,c,l,N = creation_de_jeu(L,c,l,N)
 print(L)
 J=[L,c,l,N]
-t,i=tour(L,c,l,0)
-print(t)
-print(i)
+print(tour(L,c,l,1))
 
 
