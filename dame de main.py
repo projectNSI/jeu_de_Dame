@@ -170,10 +170,10 @@ if __name__ == "__main__":
     assert main() is None
 with open('règle.json', 'r', encoding='utf-8') as f:
     LJ=json.load(f)
-    L=LJ['Liste']
-    c=LJ['colonne']
-    l=LJ['ligne']
-    N=LJ['ligne_de_pion']
+    L=LJ[0]['Liste']
+    c=LJ[0]['colonne']
+    l=LJ[0]['ligne']
+    N=LJ[0]['ligne_de_pion']
 L,c,l,N = creation_de_jeu(L,c,l,N)
 print(L)
 J=[L,c,l,N]
