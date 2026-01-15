@@ -87,13 +87,13 @@ def team_exist(L:list,v:int)->bool:
     return False
 def tour(L:list,c:int,l:int,v:int):
     """le deroulement d'un tour"""
-    M=[[],[]]
+    M=[[],[],[]]
     q=''
     Y=True
     while Y:
         T=True
         while T:    
-            i=int(input(print('quelle colone?'+'(1 à',c,')')))
+            ii=int(input(print('quelle colone?'+'(1 à',c,')')))
             h=int(input(print('quelle ligne?'+'(1 à',l,')')))
             diags=[[-1,1],[1,1],[-1,-1],[1,-1]]
             if is_friendly(L,i,h,v)==True:
@@ -101,9 +101,9 @@ def tour(L:list,c:int,l:int,v:int):
             else:
                 print('ce pion n est pas a vous')
         T=True
-        J=jeu_possible(L,i,h,diags,v)
+        J=jeu_possible(L,ii,h,diags,v)
         while T:
-            if L[i][h][1] == 1:
+            if L[ii][h][1] == 1:
                 for i in range(len(J)):
                     if J[i] ==1:
                         print('une attaque est possible sur la',i+1,'eme diagonale')
@@ -116,13 +116,13 @@ def tour(L:list,c:int,l:int,v:int):
                 if d==1 or d==2:
                     if v==0:    
                         if J[d-1]==1:
-                            L[i+diags[d-1][0]][h+diags[d-1][1]][0]=0
-                            L[i+2*diags[d-1][0]][h+2*diags[d-1][1]][0]=L[i][h][0]
-                            L[i][h][0]=0
+                            L[ii+diags[d-1][0]][h+diags[d-1][1]][0]=0
+                            L[ii+2*diags[d-1][0]][h+2*diags[d-1][1]][0]=L[ii][h][0]
+                            L[ii][h][0]=0
                             Y=False
                         elif J[d-1]==0:
-                            L[i+diags[d-1][0]][h+diags[d-1][1]][0]=L[i][h][0]
-                            L[i][h][0]=0
+                            L[ii+diags[d-1][0]][h+diags[d-1][1]][0]=L[ii][h][0]
+                            L[ii][h][0]=0
                             Y=False
                         else:
                             print('ce deplacement n est pas possible')
@@ -131,13 +131,13 @@ def tour(L:list,c:int,l:int,v:int):
                 elif d==3 or d==4:    
                     if v==1:
                         if J[d-1]==1:
-                            L[i+diags[d-1][0]][h+diags[d-1][1]][0]=0
-                            L[i+2*diags[d-1][0]][h+2*diags[d-1][1]][0]=L[i][h][0]
-                            L[i][h][0]=0
+                            L[ii+diags[d-1][0]][h+diags[d-1][1]][0]=0
+                            L[ii+2*diags[d-1][0]][h+2*diags[d-1][1]][0]=L[ii][h][0]
+                            L[ii][h][0]=0
                     
                         elif J[d-1]==2:
-                            L[i+diags[d-1][0]][h+diags[d-1][1]][0]=L[i][h][0]
-                            L[i][h][0]=0
+                            L[ii+diags[d-1][0]][h+diags[d-1][1]][0]=L[ii][h][0]
+                            L[ii][h][0]=0
                     
                         else:
                             print('ce deplacement n est pas possible')
@@ -145,15 +145,19 @@ def tour(L:list,c:int,l:int,v:int):
                         pass
                 else:
                     print('cette diagonale n existe pas')
-            elif L[i][h][1] == 2:
+            elif L[ii][h][1] == 2:
                 for i in range (len(J)):
                     for j in range (len(J[i])):
                         if J[i][j]==1:
                             M[0].append(i,j)
-                        if J[i][j]==2:
+                        elif J[i][j]==2:
                             M[1].append(i,j)
+                        elif J[i][j]==0:
+                            M[2].append(i,j)
+                for i in range(len(M[0])):
+                    print(M[0][i])
 
-    v+=1%2 
+    v = (v + 1) % 2
     Y=team_exist(L,v)
     if v==0:
         print('c est au tour des noirs')
@@ -168,14 +172,17 @@ def main():
     return None
 if __name__ == "__main__":
     assert main() is None
+#lecture du fichier règle.json
 with open('règle.json', 'r', encoding='utf-8') as f:
-    LJ=json.load(f)
-    L=LJ[0]['Liste']
-    c=LJ[0]['colonne']
-    l=LJ[0]['ligne']
-    N=LJ[0]['ligne_de_pion']
-L,c,l,N = creation_de_jeu(L,c,l,N)
+    LJ = json.load(f)[0]
+    L = LJ['Liste']
+    c = LJ['colonne']
+    l = LJ['ligne']
+    N = LJ['ligne_de_pion']
+print(L,c,l,N)
 print(L)
+L,c,l,N=creation_de_jeu(L,c,l,N)
+
 J=[L,c,l,N]
 print(tour(L,c,l,1))
 
