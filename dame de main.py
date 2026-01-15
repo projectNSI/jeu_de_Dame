@@ -1,4 +1,4 @@
-import json
+import json 
 def creation_de_jeu(L,c,l,N)->list:
     '''c=nombre de colone,l=nombre de ligne ,N=nombre de ligne de pion
     creation du plateau de jeu'''
@@ -7,13 +7,13 @@ def creation_de_jeu(L,c,l,N)->list:
         return L,c,l,N
     else:
         fc=int(input('nombre de colone,si tu notes rien on changera pas le nombre de colone'))
-        if fc!=0 or fc!=None:
+        if fc!=0 and fc:
             c=fc
         fl=int(input('nombre de ligne,si tu notes rien on changera pas le nombre de ligne'))
-        if fl!=0 or fl!=None:
+        if fl!=0 and fl:
             l=fl
         fn=int(input('nombre de ligne de pion,si tu notes rien on changera pas le nombre de ligne de pion'))
-        if fn!=0 or fn!=None:
+        if fn!=0 and fn:
             N=fn
         if c>N*2:
             L = [ [ [0,0,(1+h%2-g%2)%2] for g in range(l)] for h in range (c)]
@@ -25,14 +25,14 @@ def creation_de_jeu(L,c,l,N)->list:
                     #je regarde les case noirs
                             L[i][k][0] = 1
                             #je place un pion noir
-                            L[i][k][1] = 1
+                            L[i][k][1] = 2
                             #je designe son type comme un pion
                     elif i>c-N:
                         if L[i][k][2]==1:
                             #je regarde les case noirs
                             L[i][k][0] = 2
                             #je place un pion blanc
-                            L[i][k][1] = 1
+                            L[i][k][1] = 2
                             #je designe son type comme un pion
         else:
             print('impossible de creer le plateau de jeu avec ces parametres')
@@ -57,6 +57,8 @@ def jeu_possible(L:list,c:int,l:int,diags:list,v:int,t:int)->list:
             try:
                 if L[c+diags[i][0]][l+diags[i][1]][0] == (2-v) and L[c+2*diags[i][0]][l+2*diags[i][1]][0]==0:
                     J[i]=1
+                elif 0 <= c+diags[i][0] < len(L) and 0 <= l+diags[i][1] < len(L[0]):
+                    J[i]=0
                 elif L[c+diags[i][0]][l+diags[i][1]][0] == 0:
                     J[i]=2
                 else:
@@ -93,10 +95,10 @@ def tour(L:list,c:int,l:int,v:int):
     while Y:
         T=True
         while T:    
-            ii=int(input(print('quelle colone?'+'(1 à',c,')')))
-            h=int(input(print('quelle ligne?'+'(1 à',l,')')))
+            ii=int(input(f'quelle colone?(1 à {c})'))
+            h=int(input(f'quelle ligne?(1 à {l})'))
             diags=[[-1,1],[1,1],[-1,-1],[1,-1]]
-            if is_friendly(L,i,h,v)==True:
+            if is_friendly(L,ii,h,v)==True:
                 T=False
             else:
                 print('ce pion n est pas a vous')
@@ -105,7 +107,7 @@ def tour(L:list,c:int,l:int,v:int):
         while T:
             if L[ii][h][1] == 1:
                 for i in range(len(J)):
-                    if J[i] ==1:
+                    if J == [0] * len(diags):
                         print('une attaque est possible sur la',i+1,'eme diagonale')
                     elif J[i] ==2:
                         print('un deplacement est possible sur la',i+1,'eme diagonale')
@@ -155,7 +157,9 @@ def tour(L:list,c:int,l:int,v:int):
                         elif J[i][j]==0:
                             M[2].append(i,j)
                 for i in range(len(M[0])):
-                    print(M[0][i])
+                    print(M[0])
+
+
 
     v = (v + 1) % 2
     Y=team_exist(L,v)
@@ -165,7 +169,7 @@ def tour(L:list,c:int,l:int,v:int):
     else:
         print('c est au tour des blancs')
         q='blancs'
-    return ('les',q,'a gagner') 
+    return f'Les {q} ont gagné!' 
 
 
 def main():
@@ -180,10 +184,13 @@ with open('règle.json', 'r', encoding='utf-8') as f:
     l = LJ['ligne']
     N = LJ['ligne_de_pion']
 print(L,c,l,N)
-print(L)
 L,c,l,N=creation_de_jeu(L,c,l,N)
 
 J=[L,c,l,N]
-print(tour(L,c,l,1))
+v = 0
+
+while team_exist(L, 1) and team_exist(L, 2):
+    resultat = tour(L, c, l, v)
+    v = (v + 1) % 2
 
 
