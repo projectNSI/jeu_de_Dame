@@ -10,38 +10,38 @@
 
 ### Description
 
-Un jeu de dames complet implémenté en Python avec Pygame. Ce projet propose plusieurs versions du jeu classique de dames avec une interface graphique interactive.
+Un jeu de dames implémenté en Python avec Pygame. Ce projet éducatif comprend une interface graphique et une logique de jeu modulaire pour apprendre la programmation de jeux.
 
 ### ✨ Fonctionnalités
 
-- **Dames Internationales 10×10** - Version complète avec règles internationales
-  - Plateau 10×10 professionnel
-  - Prises obligatoires avec règle de la prise la plus longue
-  - Dames avec déplacement diagonal illimité
-  - Interface utilisateur intuitive avec menu et sélection par clic
-  - Système de surbrillance des coups possibles
-
-- **Dames Classiques 8×8** - Version traditionnelle
+- **Interface Graphique 8×8** avec Pygame
   - Plateau standard 8×8
-  - Interface graphique simple avec Pygame
-  - Détection des clics souris pour les déplacements
-  - Affichage avec étiquettes de coordonnées
+  - Affichage graphique des pions (rouge et bleu)
+  - Détection des clics souris
+  - Étiquettes de coordonnées (1-8)
+  - Affichage en temps réel
 
-- **Logique de jeu modulaire**
-  - Système de validation des mouvements
-  - Détection de capture
+- **Logique de Jeu Modulaire**
+  - Système complet de validation des mouvements
+  - Détection de capture (prise)
   - Promotion en dame
+  - Vérification des pions amis/ennemis
   - Détection de fin de partie
+  - Configuration personnalisable via JSON
+
+- **Documentation Complète**
+  - Plans d'intégration détaillés (FR/JP)
+  - Analyse logique du code
+  - Guide d'implémentation
 
 ### 📁 Structure du Projet
 
 ```
 jeu_de_Dame/
 │
-├── dame_made_by_chqtGPT.py    # 🎮 Jeu complet 10×10 (recommandé)
+├── dame de main.py            # ⚙️ Logique principale du jeu
 ├── GUI_SYSTEM/
-│   └── graphi_thema.py        # 🎨 Interface graphique 8×8
-├── dame de main.py            # ⚙️ Logique du jeu
+│   └── graphi_thema.py        # 🎨 Interface graphique Pygame
 ├── règle.json                 # 📋 Configuration du jeu
 │
 ├── logic/
@@ -52,6 +52,7 @@ jeu_de_Dame/
 │       ├── analyse_logique_dame.md      # Analyse détaillée (FR)
 │       └── analyse_logique_dame_ja.md   # Analyse détaillée (JP)
 │
+├── PROJECTnsi.code-workspace  # Workspace VS Code
 └── README.md                  # Ce fichier
 ```
 
@@ -70,29 +71,34 @@ pip install pygame
 
 ### 🎮 Utilisation
 
-#### Version 10×10 (Recommandée)
-
-```bash
-python "dame_made_by_chqtGPT.py"
-```
-
-**Contrôles :**
-- **Souris** : Cliquer pour sélectionner et déplacer les pions
-- **Menu** : Boutons Jouer/Quitter
-- **Boutons en jeu** : Rejouer/Quitter
-
-**Règles :**
-- Les noirs (⚫) commencent en bas
-- Les blancs (⚪) commencent en haut
-- Les prises sont obligatoires
-- La prise la plus longue est obligatoire
-- Les dames se déplacent sur toute la diagonale
-
-#### Version 8×8
+#### Lancer l'Interface Graphique
 
 ```bash
 python GUI_SYSTEM/graphi_thema.py
 ```
+
+**Interface :**
+- Plateau 8×8 avec damier noir et blanc
+- Pions rouges (en haut) et bleus (en bas)
+- Coordonnées affichées (colonnes 1-8, lignes 1-8)
+- Fond vert
+
+**Fonctionnalités actuelles :**
+- Affichage du plateau
+- Détection des clics (affichée dans la console)
+- Initialisation automatique des pions
+
+#### Tester la Logique du Jeu
+
+```bash
+python "dame de main.py"
+```
+
+**Fonctionnalités :**
+- Configuration interactive du plateau
+- Lecture de la configuration depuis `règle.json`
+- Validation des mouvements
+- Système de capture
 
 ### 🎯 Règles du Jeu
 
