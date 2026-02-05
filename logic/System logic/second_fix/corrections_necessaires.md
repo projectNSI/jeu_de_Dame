@@ -1,3 +1,6 @@
+
+
+
 # Liste de Corrections Seconde Phase - `dame de main.py`
 
 **Date de création:** 2026-01-22  
@@ -64,6 +67,7 @@ while team_exist(L, 1) and team_exist(L, 2):
 # Avant:
 return ('les', q, 'a gagner')
 
+
 # Après:
 return f'Les {q} ont gagné!'
 ```
@@ -83,7 +87,8 @@ Ces bugs **empêchent l'exécution du programme** et doivent être corrigés en 
 #### Code actuel (lignes 55-67):
 ```python
 if L[c][l][1]==1:
-    J=[]  # ❌ Liste vide
+    J=[]  
+    # ❌ Liste vide
     for i in range(len(diags)):
         try:
             if L[c+diags[i][0]][l+diags[i][1]][0] == (2-v) and L[c+2*diags[i][0]][l+2*diags[i][1]][0]==0:

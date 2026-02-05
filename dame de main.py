@@ -52,7 +52,7 @@ def is_friendly(L:list,c:int,l:int,v:int):
 def jeu_possible(L:list,c:int,l:int,diags:list,v:int,t:int)->list:
     """regarde si une mouvement est possible"""
     if L[c][l][1]==1:
-        J=[]
+        J=[[] for i in range(len(diags))]
         for i in range(len(diags)):
             try:
                 if L[c+diags[i][0]][l+diags[i][1]][0] == (2-v) and L[c+2*diags[i][0]][l+2*diags[i][1]][0]==0:
