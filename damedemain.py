@@ -151,13 +151,28 @@ def tour(L:list,c:int,l:int,v:int):
                 for i in range (len(J)):
                     for j in range (len(J[i])):
                         if J[i][j]==1:
-                            M[0].append(i,j)
+                            M[0].append([i,j])
                         elif J[i][j]==2:
-                            M[1].append(i,j)
+                            M[1].append([i,j])
                         elif J[i][j]==0:
-                            M[2].append(i,j)
-                for i in range(len(M[0])):
-                    print(M[0])
+                            M[2].append([i,j])
+            for i in range (len(M[2])):
+                it=M[2][i][0]
+                jt=M[2][i][1]
+                jr１=None
+                ir１=None
+                ir2=None
+                jr2=None
+                if it/diags[0][0]+ii<ir１/diags[0][0]+ii and jt/diags[0][1]-h <jr１/diags[0][1]-h and it/diags[0][0]+ii == jt/diags[0][1]-h or ir1 == None and it/diags[0][0]+ii == jt/diags[0][1]-h  :
+                    ir１=it
+                    jr１=jt
+                elif it/diags[1][0]-ii<ir2/diags[1][0]-ii and jt/diags[1][1]-h <jr2/diags[1][1]-h and it/diags[1][0]-ii == jt/diags[1][1]-h :
+                    ir2=it
+                    jr2=jt
+                elif it/diags[1][0]+ii<ir2/diags[1][0]+ii and jt/diags[1][1]+h <jr2/diags[1][1]+h and it/diags[1][0]+ii == jt/diags[1][1]+h :
+                    for i in range(len(M[0])):
+                    
+                        print(M[0])
 
 
 
