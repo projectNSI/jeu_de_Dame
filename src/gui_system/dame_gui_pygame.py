@@ -975,15 +975,20 @@ class Menu:
 
 async def main():
     pygame.init()
-    try:
-        pygame.mixer.init(22050, -16, 1, 512)
-        SOUND.enabled = True
-    except Exception:
+    # On web (emscripten), disable mixer init entirely to avoid
+    # startup stalls waiting for browser audio policies.
+    is_web = (sys.platform == "emscripten")
+    if is_web:
         SOUND.enabled = False
+    else:
+        try:
+            pygame.mixer.init(22050, -16, 1, 512)
+            SOUND.enabled = True
+        except Exception:
+            SOUND.enabled = False
 
     # On desktop, start in fullscreen.
-    # On web (emscripten), force windowed mode: FULLSCREEN at startup can stall.
-    is_web = (sys.platform == "emscripten")
+    # On web (emscripten), force windowed mode.
     if is_web:
         screen = pygame.display.set_mode((1280, 720))
     else:
