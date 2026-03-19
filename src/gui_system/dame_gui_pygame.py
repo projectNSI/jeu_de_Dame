@@ -981,16 +981,19 @@ async def main():
     except Exception:
         SOUND.enabled = False
 
-    # Desktop: start in fullscreen for immersive play.
-    # Web/Pygbag environments may not allow true fullscreen at startup,
-    # so we gracefully fall back to a large window.
-    try:
-        info = pygame.display.Info()
-        screen = pygame.display.set_mode(
-            (info.current_w, info.current_h), pygame.FULLSCREEN
-        )
-    except Exception:
+    # On desktop, start in fullscreen.
+    # On web (emscripten), force windowed mode: FULLSCREEN at startup can stall.
+    is_web = (sys.platform == "emscripten")
+    if is_web:
         screen = pygame.display.set_mode((1280, 720))
+    else:
+        try:
+            info = pygame.display.Info()
+            screen = pygame.display.set_mode(
+                (info.current_w, info.current_h), pygame.FULLSCREEN
+            )
+        except Exception:
+            screen = pygame.display.set_mode((1280, 720))
     pygame.display.set_caption("Jeu de Dames")
     clock = pygame.time.Clock()
 
@@ -1028,7 +1031,7 @@ async def main():
                     elif event.key == pygame.K_s: game.save_game()
                     elif event.key == pygame.K_o: game.load_game()
                     elif event.key == pygame.K_e: game.export_history()
-            elif event.type == pygame.KEYDOWN and event.key == pygame.K_F11:
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_F11 and not is_web:
                 is_fullscreen = not is_fullscreen
                 if is_fullscreen:
                     info = pygame.display.Info()
