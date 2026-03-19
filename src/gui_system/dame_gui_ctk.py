@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Interface graphique du Jeu de Dames avec CustomTkinter.
-Layout: gauche = plateau, droite haut = historique, droite bas = log.
+Menu principal → sélection du mode / chargement → partie.
 Fonctionnalités: IA (3 niveaux), rafle, capture obligatoire, indice,
 undo, sauvegarde/chargement, minuterie, thèmes, export.
 """
@@ -171,6 +171,20 @@ def _sim_move(L, move, c_max):
             L[tc][tl][1] = 2
 
 
+# ── sound ──
+
+
+def _beep_seq(notes):
+    if not _HAS_WINSOUND:
+        return
+
+    def _play():
+        for freq, dur in notes:
+            winsound.Beep(freq, dur)
+
+    threading.Thread(target=_play, daemon=True).start()
+
+
 # ── AI ──
 
 
@@ -275,6 +289,160 @@ class DameGUI(ctk.CTk):
 
         self._load_config()
 
+        board_px = max(self.c, self.l) * SQUARE_SIZE
+        self.geometry(f"{board_px + 560}x{board_px + 120}")
+        try:
+            self.state("zoomed")
+        except Exception:
+            pass
+
+        self._show_menu()
+
+    def _load_config(self):
+        root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        project_root = os.path.dirname(root_dir)
+        for base in (project_root, root_dir, os.getcwd()):
+            p = os.path.join(base, "config", "regle.json")
+            if os.path.exists(p):
+                with open(p, "r", encoding="utf-8") as f:
+                    cfg = json.load(f)[0]
+                    self.c = cfg.get("colonne", 8)
+                    self.l = cfg.get("ligne", 8)
+                    self.N = cfg.get("ligne_de_pion", 3)
+                return
+        self.c, self.l, self.N = 8, 8, 3
+
+    # ══════════════════════════════════════════════════════════════
+    # MAIN MENU
+    # ══════════════════════════════════════════════════════════════
+
+    def _show_menu(self):
+        self._menu_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self._menu_frame.pack(fill="both", expand=True)
+
+        spacer_top = ctk.CTkFrame(self._menu_frame, fg_color="transparent")
+        spacer_top.pack(expand=True)
+
+        center = ctk.CTkFrame(
+            self._menu_frame, fg_color="#1e1e1e", corner_radius=16
+        )
+        center.pack(pady=20)
+
+        ctk.CTkLabel(
+            center, text="♔  Jeu de Dames  ♕",
+            font=("Arial", 42, "bold"), text_color="#e0c878",
+        ).pack(padx=60, pady=(40, 5))
+
+        ctk.CTkLabel(
+            center, text="Checkers — Version CustomTkinter",
+            font=("Arial", 14), text_color="#888",
+        ).pack(pady=(0, 30))
+
+        mode_frame = ctk.CTkFrame(center, fg_color="transparent")
+        mode_frame.pack(pady=(0, 10))
+        ctk.CTkLabel(
+            mode_frame, text="Mode de jeu :", font=("Arial", 15),
+        ).pack(side="left", padx=(0, 8))
+        self._menu_mode = ctk.CTkOptionMenu(
+            mode_frame,
+            values=list(AI_MODES.keys()),
+            font=("Arial", 14),
+            width=180,
+            height=32,
+        )
+        self._menu_mode.set("2 Joueurs")
+        self._menu_mode.pack(side="left")
+
+        theme_frame = ctk.CTkFrame(center, fg_color="transparent")
+        theme_frame.pack(pady=(0, 25))
+        ctk.CTkLabel(
+            theme_frame, text="Thème :", font=("Arial", 15),
+        ).pack(side="left", padx=(0, 8))
+        self._menu_theme = ctk.CTkOptionMenu(
+            theme_frame,
+            values=list(THEMES.keys()),
+            font=("Arial", 14),
+            width=180,
+            height=32,
+        )
+        self._menu_theme.set("Classique")
+        self._menu_theme.pack(side="left")
+
+        ctk.CTkButton(
+            center, text="▶  Commencer la partie",
+            font=("Arial", 18, "bold"), width=300, height=48,
+            command=self._menu_start, fg_color="#2d6a4f",
+            hover_color="#3a8a65",
+        ).pack(pady=(0, 10))
+
+        ctk.CTkButton(
+            center, text="📂  Charger une partie sauvegardée",
+            font=("Arial", 15), width=300, height=40,
+            command=self._menu_load, fg_color="#3a5a8a",
+            hover_color="#4a6a9a",
+        ).pack(pady=(0, 10))
+
+        ctk.CTkButton(
+            center, text="Quitter",
+            font=("Arial", 14), width=200, height=34,
+            command=self.destroy, fg_color="#555", hover_color="#777",
+        ).pack(pady=(0, 35))
+
+        spacer_bot = ctk.CTkFrame(self._menu_frame, fg_color="transparent")
+        spacer_bot.pack(expand=True)
+
+        _beep_seq([(600, 80), (800, 80), (1000, 120)])
+
+    def _menu_start(self):
+        mode_label = self._menu_mode.get()
+        theme_label = self._menu_theme.get()
+        self._menu_frame.destroy()
+        self._init_game_state()
+        self._ai_mode = AI_MODES.get(mode_label)
+        if self._ai_mode:
+            self.ai = SimpleAI(self._ai_mode, self.c, self.l)
+        self._current_theme = theme_label
+        if theme_label in THEMES:
+            global DARK_SQ, LIGHT_SQ
+            DARK_SQ = THEMES[theme_label]["dark"]
+            LIGHT_SQ = THEMES[theme_label]["light"]
+        self._start_game()
+
+    def _menu_load(self):
+        path = filedialog.askopenfilename(
+            title="Charger une partie",
+            filetypes=[("JSON", "*.json")],
+        )
+        if not path:
+            return
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        self._menu_frame.destroy()
+        self._init_game_state()
+        self.L = data["board"]
+        self.current_player = data["player"]
+        self.move_number = data["move_number"]
+        self.score = {int(k): v for k, v in data["score"].items()}
+        self._loaded_hist = data.get("history_text", "")
+        self._start_game()
+        if self._loaded_hist:
+            self.hist_text.configure(state="normal")
+            self.hist_text.insert("1.0", self._loaded_hist)
+            self.hist_text.see("end")
+            self.hist_text.configure(state="disabled")
+        self.append_log(f"Partie chargée ← {os.path.basename(path)}")
+        self.label_tour.configure(
+            text="Tour des Noirs (●)"
+            if self.current_player == 1
+            else "Tour des Blancs (●)"
+        )
+        self._update_score_label()
+
+    # ══════════════════════════════════════════════════════════════
+    # GAME INIT
+    # ══════════════════════════════════════════════════════════════
+
+    def _init_game_state(self):
         self.L = create_board(self.c, self.l, self.N)
         self.current_player = 1
         self.hover_piece = None
@@ -293,14 +461,9 @@ class DameGUI(ctk.CTk):
         self._ai_mode = None
         self.ai = None
         self._hint_timer = None
+        self._loaded_hist = ""
 
-        board_px = max(self.c, self.l) * SQUARE_SIZE
-        self.geometry(f"{board_px + 560}x{board_px + 120}")
-        try:
-            self.state("zoomed")
-        except Exception:
-            pass
-
+    def _start_game(self):
         self.bind("<Control-z>", lambda e: self._undo())
         self.bind("<Control-n>", lambda e: self._new_game())
         self.bind("<Control-s>", lambda e: self._save_game())
@@ -309,34 +472,25 @@ class DameGUI(ctk.CTk):
 
         self._build_ui()
         self.append_log("=== Démarrage du jeu ===")
+        if self._ai_mode:
+            self.append_log(f"Mode IA: {self._ai_mode}")
         self._log_teams()
         self._save_state()
         self._tick_timer()
 
-    def _load_config(self):
-        root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        project_root = os.path.dirname(root_dir)
-        for base in (project_root, root_dir, os.getcwd()):
-            p = os.path.join(base, "config", "regle.json")
-            if os.path.exists(p):
-                with open(p, "r", encoding="utf-8") as f:
-                    cfg = json.load(f)[0]
-                    self.c = cfg.get("colonne", 8)
-                    self.l = cfg.get("ligne", 8)
-                    self.N = cfg.get("ligne_de_pion", 3)
-                return
-        self.c, self.l, self.N = 8, 8, 3
+        if self._is_ai_turn():
+            self.after(800, self._ai_move)
 
     # ── UI construction ──
 
     def _build_ui(self):
-        root_frame = ctk.CTkFrame(self, fg_color="transparent")
-        root_frame.pack(fill="both", expand=True, padx=10, pady=10)
-        root_frame.grid_columnconfigure(0, weight=0)
-        root_frame.grid_columnconfigure(1, weight=1)
-        root_frame.grid_rowconfigure(0, weight=1)
+        self._root_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self._root_frame.pack(fill="both", expand=True, padx=10, pady=10)
+        self._root_frame.grid_columnconfigure(0, weight=0)
+        self._root_frame.grid_columnconfigure(1, weight=1)
+        self._root_frame.grid_rowconfigure(0, weight=1)
 
-        left = ctk.CTkFrame(root_frame, fg_color="transparent")
+        left = ctk.CTkFrame(self._root_frame, fg_color="transparent")
         left.grid(row=0, column=0, sticky="ns", padx=(0, 10))
 
         top_bar = ctk.CTkFrame(left, fg_color="transparent")
@@ -422,87 +576,61 @@ class DameGUI(ctk.CTk):
 
         self._draw_all_pieces()
 
-        # buttons row 1
         btn1 = ctk.CTkFrame(left, fg_color="transparent")
         btn1.pack(pady=(6, 0), fill="x")
         ctk.CTkButton(
-            btn1,
-            text="⟲ Annuler (Ctrl+Z)",
-            font=("Arial", 13),
-            width=155,
-            height=30,
-            command=self._undo,
+            btn1, text="⟲ Annuler (Ctrl+Z)", font=("Arial", 13),
+            width=155, height=30, command=self._undo,
         ).pack(side="left", padx=(0, 4))
         ctk.CTkButton(
-            btn1,
-            text="💡 Indice (Ctrl+H)",
-            font=("Arial", 13),
-            width=155,
-            height=30,
-            command=self._show_hint,
-            fg_color="#7a6520",
+            btn1, text="💡 Indice (Ctrl+H)", font=("Arial", 13),
+            width=155, height=30, command=self._show_hint, fg_color="#7a6520",
         ).pack(side="left", padx=(0, 4))
         ctk.CTkButton(
-            btn1,
-            text="⟳ Nouvelle (Ctrl+N)",
-            font=("Arial", 13),
-            width=155,
-            height=30,
-            command=self._new_game,
-            fg_color="#555",
+            btn1, text="⟳ Nouvelle (Ctrl+N)", font=("Arial", 13),
+            width=155, height=30, command=self._new_game, fg_color="#555",
         ).pack(side="left")
 
-        # buttons row 2
         btn2 = ctk.CTkFrame(left, fg_color="transparent")
         btn2.pack(pady=(4, 0), fill="x")
         ctk.CTkButton(
-            btn2,
-            text="💾 Sauvegarder (Ctrl+S)",
-            font=("Arial", 13),
-            width=170,
-            height=30,
-            command=self._save_game,
-            fg_color="#3a6b35",
+            btn2, text="💾 Sauvegarder (Ctrl+S)", font=("Arial", 13),
+            width=170, height=30, command=self._save_game, fg_color="#3a6b35",
         ).pack(side="left", padx=(0, 4))
         ctk.CTkButton(
-            btn2,
-            text="📂 Charger (Ctrl+O)",
-            font=("Arial", 13),
-            width=150,
-            height=30,
-            command=self._load_game,
-            fg_color="#3a6b35",
+            btn2, text="📂 Charger (Ctrl+O)", font=("Arial", 13),
+            width=150, height=30, command=self._load_game, fg_color="#3a6b35",
+        ).pack(side="left", padx=(0, 4))
+        ctk.CTkButton(
+            btn2, text="🏠 Menu", font=("Arial", 13),
+            width=80, height=30, command=self._back_to_menu, fg_color="#555",
         ).pack(side="left")
 
-        # row 3: theme + AI mode
         opt_row = ctk.CTkFrame(left, fg_color="transparent")
         opt_row.pack(pady=(4, 0), fill="x")
         ctk.CTkLabel(opt_row, text="Thème:", font=("Arial", 12)).pack(side="left")
         self.theme_menu = ctk.CTkOptionMenu(
-            opt_row,
-            values=list(THEMES.keys()),
-            command=self._change_theme,
-            font=("Arial", 12),
-            width=120,
-            height=26,
+            opt_row, values=list(THEMES.keys()),
+            command=self._change_theme, font=("Arial", 12),
+            width=120, height=26,
         )
         self.theme_menu.set(self._current_theme)
         self.theme_menu.pack(side="left", padx=(4, 10))
 
         ctk.CTkLabel(opt_row, text="Mode:", font=("Arial", 12)).pack(side="left")
         self.ai_menu = ctk.CTkOptionMenu(
-            opt_row,
-            values=list(AI_MODES.keys()),
-            command=self._change_ai_mode,
-            font=("Arial", 12),
-            width=140,
-            height=26,
+            opt_row, values=list(AI_MODES.keys()),
+            command=self._change_ai_mode, font=("Arial", 12),
+            width=140, height=26,
         )
-        self.ai_menu.set("2 Joueurs")
+        current_label = next(
+            (k for k, v in AI_MODES.items() if v == self._ai_mode), "2 Joueurs"
+        )
+        self.ai_menu.set(current_label)
         self.ai_menu.pack(side="left", padx=(4, 0))
 
         # RIGHT panels
-        right = ctk.CTkFrame(root_frame, fg_color="transparent")
+        right = ctk.CTkFrame(self._root_frame, fg_color="transparent")
         right.grid(row=0, column=1, sticky="nsew")
         right.grid_rowconfigure(0, weight=1)
         right.grid_rowconfigure(1, weight=1)
@@ -513,18 +641,12 @@ class DameGUI(ctk.CTk):
         hist_header = ctk.CTkFrame(hist_frame, fg_color="transparent")
         hist_header.pack(fill="x", padx=12, pady=(8, 2))
         ctk.CTkLabel(
-            hist_header,
-            text="Historique des coups",
+            hist_header, text="Historique des coups",
             font=("Arial", 16, "bold"),
         ).pack(side="left")
         ctk.CTkButton(
-            hist_header,
-            text="📋 Exporter",
-            font=("Arial", 11),
-            width=90,
-            height=24,
-            command=self._export_history,
-            fg_color="#555",
+            hist_header, text="📋 Exporter", font=("Arial", 11),
+            width=90, height=24, command=self._export_history, fg_color="#555",
         ).pack(side="right")
         self.hist_text = ctk.CTkTextbox(
             hist_frame, font=("Consolas", 14), state="disabled"
@@ -534,14 +656,17 @@ class DameGUI(ctk.CTk):
         log_frame = ctk.CTkFrame(right, fg_color="#1a1a1a", corner_radius=6)
         log_frame.grid(row=1, column=0, sticky="nsew")
         ctk.CTkLabel(
-            log_frame,
-            text="Journal des appels (log)",
+            log_frame, text="Journal des appels (log)",
             font=("Arial", 16, "bold"),
         ).pack(anchor="w", padx=12, pady=(8, 2))
         self.log_text = ctk.CTkTextbox(
             log_frame, font=("Consolas", 13), state="disabled"
         )
         self.log_text.pack(fill="both", expand=True, padx=10, pady=(0, 10))
+
+    def _back_to_menu(self):
+        self._root_frame.destroy()
+        self._show_menu()
 
     # ── rendering ──
 
@@ -657,10 +782,9 @@ class DameGUI(ctk.CTk):
                 return
         self._apply_hover((col, ligne), moves)
 
-    # ── move execution (shared by human & AI) ──
+    # ── move execution ──
 
     def _execute_move(self, fc, fl, tc, tl, is_cap, save=True):
-        """Core move logic. Returns True if chain continues."""
         if save and not self._chain_piece:
             self._save_state()
 
@@ -716,7 +840,7 @@ class DameGUI(ctk.CTk):
         self._next_turn()
         return False
 
-    # ── click (human) ──
+    # ── click ──
 
     def _on_click(self, col, ligne):
         if self._game_over or self._is_ai_turn():
@@ -753,11 +877,9 @@ class DameGUI(ctk.CTk):
     def _ai_move(self):
         if not self._is_ai_turn():
             return
-
         if self._chain_piece:
             self._ai_chain_step()
             return
-
         v = 0
         move = self.ai.choose_move(self.L, v)
         if not move:
@@ -766,13 +888,10 @@ class DameGUI(ctk.CTk):
             self._game_over = True
             self._play_victory_sound()
             return
-
         fc, fl, tc, tl, is_cap = move
         self._apply_hover((fc, fl), [(tc, tl, is_cap)])
         self.append_log(f"🤖 IA joue: {cell_name(fc, fl)} → {cell_name(tc, tl)}")
-        self.after(
-            450, lambda: self._ai_execute(fc, fl, tc, tl, is_cap)
-        )
+        self.after(450, lambda: self._ai_execute(fc, fl, tc, tl, is_cap))
 
     def _ai_execute(self, fc, fl, tc, tl, is_cap):
         chain = self._execute_move(fc, fl, tc, tl, is_cap)
@@ -808,10 +927,7 @@ class DameGUI(ctk.CTk):
             f"🤖 IA rafle: {cell_name(col, ligne)} → {cell_name(tc, tl)}"
         )
         self._apply_hover((col, ligne), [(tc, tl, True)])
-        self.after(
-            450,
-            lambda: self._ai_execute(col, ligne, tc, tl, True),
-        )
+        self.after(450, lambda: self._ai_execute(col, ligne, tc, tl, True))
 
     # ── hint ──
 
@@ -1079,31 +1195,27 @@ class DameGUI(ctk.CTk):
             )
         self.after(1000, self._tick_timer)
 
-    # ── sound ──
-
-    def _beep_seq(self, notes):
-        if not _HAS_WINSOUND:
-            return
-
-        def _play():
-            for freq, dur in notes:
-                winsound.Beep(freq, dur)
-
-        threading.Thread(target=_play, daemon=True).start()
+    # ── sound (louder & more dramatic) ──
 
     def _play_sound(self, is_capture=False, is_promotion=False):
         if is_promotion:
-            self._beep_seq([(880, 100), (1100, 100), (1320, 150)])
+            _beep_seq([
+                (440, 120), (660, 120), (880, 120),
+                (1100, 120), (1400, 200),
+            ])
         elif is_capture:
-            self._beep_seq([(700, 80), (900, 120)])
+            _beep_seq([(1400, 120), (350, 250)])
         else:
-            self._beep_seq([(660, 120)])
+            _beep_seq([(500, 150), (1000, 150)])
 
     def _play_undo_sound(self):
-        self._beep_seq([(500, 80), (400, 120)])
+        _beep_seq([(900, 100), (300, 200)])
 
     def _play_victory_sound(self):
-        self._beep_seq([(880, 120), (1100, 120), (1320, 120), (1760, 250)])
+        _beep_seq([
+            (523, 150), (659, 150), (784, 150),
+            (1047, 150), (1319, 150), (1568, 300),
+        ])
 
     # ── log ──
 
