@@ -2,8 +2,8 @@
 """
 Interface graphique du Jeu de Dames avec CustomTkinter.
 Layout: gauche = plateau, droite haut = historique, droite bas = log.
-Fonctionnalités: rafle, capture obligatoire, undo, sauvegarde/chargement,
-minuterie, export historique, raccourcis clavier, thèmes.
+Fonctionnalités: IA (3 niveaux), rafle, capture obligatoire, indice,
+undo, sauvegarde/chargement, minuterie, thèmes, export.
 """
 
 import sys
@@ -11,6 +11,7 @@ import os
 import json
 import copy
 import time
+import random
 import threading
 from datetime import datetime
 from tkinter import filedialog
@@ -38,8 +39,9 @@ HL_MOVE = "#7FDB7F"
 HL_LAST_FROM = "#b8a960"
 HL_LAST_TO = "#c8b970"
 HL_CHAIN = "#e08040"
-CLR_NOIR = "#1E90FF"
-CLR_BLANC = "#DC143C"
+HL_HINT = "#d4a017"
+CLR_NOIR = "#111111"
+CLR_BLANC = "#F0F0F0"
 
 THEMES = {
     "Classique": {"dark": "#8B4513", "light": "#DEB887"},
@@ -47,6 +49,16 @@ THEMES = {
     "Océan": {"dark": "#1b4965", "light": "#bee9e8"},
     "Crépuscule": {"dark": "#6d435a", "light": "#d4a5a5"},
 }
+
+AI_MODES = {
+    "2 Joueurs": None,
+    "vs IA Facile": "facile",
+    "vs IA Moyen": "moyen",
+    "vs IA Difficile": "difficile",
+}
+
+
+# ── utility ──
 
 
 def col_letter(c):
@@ -59,6 +71,10 @@ def cell_name(col, ligne):
 
 def log_call(gui, name, args, result):
     gui.append_log(f"→ {name}({', '.join(str(a) for a in args)}) = {result}")
+
+
+def _copy_board(L):
+    return [[[cell[0], cell[1], cell[2]] for cell in col] for col in L]
 
 
 def create_board(c, l, N):
@@ -131,6 +147,125 @@ def _any_capture_available(L, v, c_max, l_max):
     return False
 
 
+def _get_all_moves(L, v, c_max, l_max):
+    moves = []
+    must_cap = _any_capture_available(L, v, c_max, l_max)
+    for col in range(c_max):
+        for ligne in range(l_max):
+            if is_friendly(L, col, ligne, v):
+                J = jeu_possible(L, col, ligne, DIAGS, v, None)
+                mv = get_moves(L, col, ligne, J, v)
+                if must_cap:
+                    mv = [m for m in mv if m[2]]
+                for m in mv:
+                    moves.append((col, ligne, m[0], m[1], m[2]))
+    return moves
+
+
+def _sim_move(L, move, c_max):
+    fc, fl, tc, tl, is_cap = move
+    do_move(L, fc, fl, tc, tl, is_cap)
+    if L[tc][tl][1] == 1:
+        color = L[tc][tl][0]
+        if (color == 1 and tc == c_max - 1) or (color == 2 and tc == 0):
+            L[tc][tl][1] = 2
+
+
+# ── AI ──
+
+
+class SimpleAI:
+    def __init__(self, difficulty, c, l):
+        self.difficulty = difficulty
+        self.c = c
+        self.l = l
+
+    def choose_move(self, L, v):
+        moves = _get_all_moves(L, v, self.c, self.l)
+        if not moves:
+            return None
+        if self.difficulty == "facile":
+            return random.choice(moves)
+        if self.difficulty == "moyen":
+            return self._greedy(L, v, moves)
+        return self._minimax_root(L, v, moves)
+
+    def _greedy(self, L, v, moves):
+        scored = []
+        for m in moves:
+            Lc = _copy_board(L)
+            _sim_move(Lc, m, self.c)
+            scored.append((self._evaluate(Lc, v), m))
+        scored.sort(key=lambda x: x[0], reverse=True)
+        best = scored[0][0]
+        top = [s for s in scored if s[0] == best]
+        return random.choice(top)[1]
+
+    def _minimax_root(self, L, v, moves):
+        best_score = float("-inf")
+        best_moves = []
+        for m in moves:
+            Lc = _copy_board(L)
+            _sim_move(Lc, m, self.c)
+            s = self._minimax(Lc, 2, False, v, float("-inf"), float("inf"))
+            if s > best_score:
+                best_score = s
+                best_moves = [m]
+            elif s == best_score:
+                best_moves.append(m)
+        return random.choice(best_moves) if best_moves else moves[0]
+
+    def _minimax(self, L, depth, maximizing, ai_v, alpha, beta):
+        if depth == 0:
+            return self._evaluate(L, ai_v)
+        v = ai_v if maximizing else (1 - ai_v)
+        moves = _get_all_moves(L, v, self.c, self.l)
+        if not moves:
+            return -999 if maximizing else 999
+        if maximizing:
+            val = float("-inf")
+            for m in moves:
+                Lc = _copy_board(L)
+                _sim_move(Lc, m, self.c)
+                val = max(
+                    val,
+                    self._minimax(Lc, depth - 1, False, ai_v, alpha, beta),
+                )
+                alpha = max(alpha, val)
+                if beta <= alpha:
+                    break
+            return val
+        val = float("inf")
+        for m in moves:
+            Lc = _copy_board(L)
+            _sim_move(Lc, m, self.c)
+            val = min(
+                val,
+                self._minimax(Lc, depth - 1, True, ai_v, alpha, beta),
+            )
+            beta = min(beta, val)
+            if beta <= alpha:
+                break
+        return val
+
+    def _evaluate(self, L, ai_v):
+        score = 0
+        for col in range(self.c):
+            for ligne in range(self.l):
+                p = L[col][ligne]
+                if p[0] == 0:
+                    continue
+                val = 5.0 if p[1] == 2 else 1.0
+                if p[1] == 1:
+                    if p[0] == 1:
+                        val += col * 0.15
+                    else:
+                        val += (self.c - 1 - col) * 0.15
+                p_v = 1 if p[0] == 1 else 0
+                score += val if p_v == ai_v else -val
+        return score
+
+
 # ═══════════════════════════════════════════════════════════════════
 class DameGUI(ctk.CTk):
     def __init__(self):
@@ -155,6 +290,9 @@ class DameGUI(ctk.CTk):
         self._turn_start = time.time()
         self._game_start = time.time()
         self._current_theme = "Classique"
+        self._ai_mode = None
+        self.ai = None
+        self._hint_timer = None
 
         board_px = max(self.c, self.l) * SQUARE_SIZE
         self.geometry(f"{board_px + 560}x{board_px + 120}")
@@ -167,6 +305,7 @@ class DameGUI(ctk.CTk):
         self.bind("<Control-n>", lambda e: self._new_game())
         self.bind("<Control-s>", lambda e: self._save_game())
         self.bind("<Control-o>", lambda e: self._load_game())
+        self.bind("<Control-h>", lambda e: self._show_hint())
 
         self._build_ui()
         self.append_log("=== Démarrage du jeu ===")
@@ -200,7 +339,6 @@ class DameGUI(ctk.CTk):
         left = ctk.CTkFrame(root_frame, fg_color="transparent")
         left.grid(row=0, column=0, sticky="ns", padx=(0, 10))
 
-        # top bar: turn + timer
         top_bar = ctk.CTkFrame(left, fg_color="transparent")
         top_bar.pack(fill="x", pady=(0, 2))
         self.label_tour = ctk.CTkLabel(
@@ -212,16 +350,16 @@ class DameGUI(ctk.CTk):
         )
         self.label_timer.pack(side="right", padx=(10, 0))
 
-        # score bar
         score_bar = ctk.CTkFrame(left, fg_color="transparent")
         score_bar.pack(fill="x", pady=(0, 4))
         self.label_score = ctk.CTkLabel(
-            score_bar, text="Captures — Noir: 0  Blanc: 0",
-            font=("Arial", 13), text_color="#ccc",
+            score_bar,
+            text="Captures — Noir: 0  Blanc: 0",
+            font=("Arial", 13),
+            text_color="#ccc",
         )
         self.label_score.pack(side="left")
 
-        # board
         board_outer = ctk.CTkFrame(left, fg_color="#2b2b2b", corner_radius=4)
         board_outer.pack()
 
@@ -230,8 +368,11 @@ class DameGUI(ctk.CTk):
         ctk.CTkLabel(header, text="", width=28).pack(side="left")
         for col in range(self.c):
             ctk.CTkLabel(
-                header, text=col_letter(col), width=SQUARE_SIZE,
-                font=("Consolas", 12, "bold"), text_color="#aaa",
+                header,
+                text=col_letter(col),
+                width=SQUARE_SIZE,
+                font=("Consolas", 12, "bold"),
+                text_color="#aaa",
             ).pack(side="left")
 
         board_body = ctk.CTkFrame(board_outer, fg_color="transparent")
@@ -247,8 +388,12 @@ class DameGUI(ctk.CTk):
         row_labels.pack(side="left", fill="y")
         for ligne in range(self.l):
             ctk.CTkLabel(
-                row_labels, text=str(ligne + 1), height=SQUARE_SIZE,
-                width=28, font=("Consolas", 12, "bold"), text_color="#aaa",
+                row_labels,
+                text=str(ligne + 1),
+                height=SQUARE_SIZE,
+                width=28,
+                font=("Consolas", 12, "bold"),
+                text_color="#aaa",
             ).pack()
 
         self.squares = []
@@ -258,9 +403,13 @@ class DameGUI(ctk.CTk):
                 base = DARK_SQ if self.L[col][ligne][2] == 1 else LIGHT_SQ
                 sq = ctk.CTkButton(
                     self._board_frame,
-                    width=SQUARE_SIZE - 2, height=SQUARE_SIZE - 2,
-                    text="", font=("Arial", PIECE_FONT),
-                    fg_color=base, hover_color=base, text_color="#FFFFFF",
+                    width=SQUARE_SIZE - 2,
+                    height=SQUARE_SIZE - 2,
+                    text="",
+                    font=("Arial", PIECE_FONT),
+                    fg_color=base,
+                    hover_color=base,
+                    text_color="#FFFFFF",
                     corner_radius=0,
                     command=lambda c=col, l=ligne: self._on_click(c, l),
                 )
@@ -277,37 +426,80 @@ class DameGUI(ctk.CTk):
         btn1 = ctk.CTkFrame(left, fg_color="transparent")
         btn1.pack(pady=(6, 0), fill="x")
         ctk.CTkButton(
-            btn1, text="⟲ Annuler (Ctrl+Z)", font=("Arial", 13),
-            width=155, height=30, command=self._undo,
+            btn1,
+            text="⟲ Annuler (Ctrl+Z)",
+            font=("Arial", 13),
+            width=155,
+            height=30,
+            command=self._undo,
         ).pack(side="left", padx=(0, 4))
         ctk.CTkButton(
-            btn1, text="⟳ Nouvelle partie (Ctrl+N)", font=("Arial", 13),
-            width=190, height=30, command=self._new_game, fg_color="#555",
+            btn1,
+            text="💡 Indice (Ctrl+H)",
+            font=("Arial", 13),
+            width=155,
+            height=30,
+            command=self._show_hint,
+            fg_color="#7a6520",
+        ).pack(side="left", padx=(0, 4))
+        ctk.CTkButton(
+            btn1,
+            text="⟳ Nouvelle (Ctrl+N)",
+            font=("Arial", 13),
+            width=155,
+            height=30,
+            command=self._new_game,
+            fg_color="#555",
         ).pack(side="left")
 
         # buttons row 2
         btn2 = ctk.CTkFrame(left, fg_color="transparent")
         btn2.pack(pady=(4, 0), fill="x")
         ctk.CTkButton(
-            btn2, text="💾 Sauvegarder (Ctrl+S)", font=("Arial", 13),
-            width=170, height=30, command=self._save_game, fg_color="#3a6b35",
+            btn2,
+            text="💾 Sauvegarder (Ctrl+S)",
+            font=("Arial", 13),
+            width=170,
+            height=30,
+            command=self._save_game,
+            fg_color="#3a6b35",
         ).pack(side="left", padx=(0, 4))
         ctk.CTkButton(
-            btn2, text="📂 Charger (Ctrl+O)", font=("Arial", 13),
-            width=150, height=30, command=self._load_game, fg_color="#3a6b35",
+            btn2,
+            text="📂 Charger (Ctrl+O)",
+            font=("Arial", 13),
+            width=150,
+            height=30,
+            command=self._load_game,
+            fg_color="#3a6b35",
         ).pack(side="left")
 
-        # theme selector
-        theme_row = ctk.CTkFrame(left, fg_color="transparent")
-        theme_row.pack(pady=(4, 0), fill="x")
-        ctk.CTkLabel(theme_row, text="Thème:", font=("Arial", 12)).pack(side="left")
+        # row 3: theme + AI mode
+        opt_row = ctk.CTkFrame(left, fg_color="transparent")
+        opt_row.pack(pady=(4, 0), fill="x")
+        ctk.CTkLabel(opt_row, text="Thème:", font=("Arial", 12)).pack(side="left")
         self.theme_menu = ctk.CTkOptionMenu(
-            theme_row, values=list(THEMES.keys()),
-            command=self._change_theme, font=("Arial", 12),
-            width=130, height=26,
+            opt_row,
+            values=list(THEMES.keys()),
+            command=self._change_theme,
+            font=("Arial", 12),
+            width=120,
+            height=26,
         )
         self.theme_menu.set(self._current_theme)
-        self.theme_menu.pack(side="left", padx=(4, 0))
+        self.theme_menu.pack(side="left", padx=(4, 10))
+
+        ctk.CTkLabel(opt_row, text="Mode:", font=("Arial", 12)).pack(side="left")
+        self.ai_menu = ctk.CTkOptionMenu(
+            opt_row,
+            values=list(AI_MODES.keys()),
+            command=self._change_ai_mode,
+            font=("Arial", 12),
+            width=140,
+            height=26,
+        )
+        self.ai_menu.set("2 Joueurs")
+        self.ai_menu.pack(side="left", padx=(4, 0))
 
         # RIGHT panels
         right = ctk.CTkFrame(root_frame, fg_color="transparent")
@@ -316,29 +508,34 @@ class DameGUI(ctk.CTk):
         right.grid_rowconfigure(1, weight=1)
         right.grid_columnconfigure(0, weight=1)
 
-        # history
         hist_frame = ctk.CTkFrame(right, fg_color="#1e1e1e", corner_radius=6)
         hist_frame.grid(row=0, column=0, sticky="nsew", pady=(0, 6))
         hist_header = ctk.CTkFrame(hist_frame, fg_color="transparent")
         hist_header.pack(fill="x", padx=12, pady=(8, 2))
         ctk.CTkLabel(
-            hist_header, text="Historique des coups",
+            hist_header,
+            text="Historique des coups",
             font=("Arial", 16, "bold"),
         ).pack(side="left")
         ctk.CTkButton(
-            hist_header, text="📋 Exporter", font=("Arial", 11),
-            width=90, height=24, command=self._export_history, fg_color="#555",
+            hist_header,
+            text="📋 Exporter",
+            font=("Arial", 11),
+            width=90,
+            height=24,
+            command=self._export_history,
+            fg_color="#555",
         ).pack(side="right")
         self.hist_text = ctk.CTkTextbox(
             hist_frame, font=("Consolas", 14), state="disabled"
         )
         self.hist_text.pack(fill="both", expand=True, padx=10, pady=(0, 10))
 
-        # log
         log_frame = ctk.CTkFrame(right, fg_color="#1a1a1a", corner_radius=6)
         log_frame.grid(row=1, column=0, sticky="nsew")
         ctk.CTkLabel(
-            log_frame, text="Journal des appels (log)",
+            log_frame,
+            text="Journal des appels (log)",
             font=("Arial", 16, "bold"),
         ).pack(anchor="w", padx=12, pady=(8, 2))
         self.log_text = ctk.CTkTextbox(
@@ -387,6 +584,19 @@ class DameGUI(ctk.CTk):
             text=f"Captures — Noir: {self.score[1]}  Blanc: {self.score[2]}"
         )
 
+    def _flash_cell(self, col, ligne, color="#FF4444", count=4, interval=80):
+        if count <= 0:
+            self._draw_cell(col, ligne)
+            return
+        base = self._base_color(col, ligne)
+        now = self.squares[ligne][col].cget("fg_color")
+        nxt = color if now != color else base
+        self._set_bg(col, ligne, nxt)
+        self.after(
+            interval,
+            lambda: self._flash_cell(col, ligne, color, count - 1, interval),
+        )
+
     # ── hover ──
 
     def _apply_hover(self, piece, moves):
@@ -429,46 +639,31 @@ class DameGUI(ctk.CTk):
 
     def _on_enter(self, col, ligne):
         self._cancel_clear()
-        if self._game_over:
+        if self._game_over or self._is_ai_turn():
             return
-
         if self._chain_piece:
-            # during chain capture, ignore hover on other cells
             return
-
         dests = {(m[0], m[1]) for m in self.hover_moves}
         if (col, ligne) in dests or (col, ligne) == self.hover_piece:
             return
-
         v = 1 if self.current_player == 1 else 0
         if not is_friendly(self.L, col, ligne, v):
             return
-
         J = jeu_possible(self.L, col, ligne, DIAGS, v, None)
         moves = get_moves(self.L, col, ligne, J, v)
-
         if _any_capture_available(self.L, v, self.c, self.l):
             moves = [m for m in moves if m[2]]
             if not moves:
                 return
         self._apply_hover((col, ligne), moves)
 
-    # ── click ──
+    # ── move execution (shared by human & AI) ──
 
-    def _on_click(self, col, ligne):
-        if self._game_over:
-            return
-        dest = next(
-            (m for m in self.hover_moves if m[0] == col and m[1] == ligne), None
-        )
-        if not dest or not self.hover_piece:
-            return
-
-        if not self._chain_piece:
+    def _execute_move(self, fc, fl, tc, tl, is_cap, save=True):
+        """Core move logic. Returns True if chain continues."""
+        if save and not self._chain_piece:
             self._save_state()
 
-        fc, fl = self.hover_piece
-        tc, tl, is_cap = dest
         v = 1 if self.current_player == 1 else 0
 
         log_call(self, "is_friendly", ("L", fc, fl, v), True)
@@ -484,6 +679,7 @@ class DameGUI(ctk.CTk):
             cells_to_redraw.add(captured)
             self.score[self.current_player] += 1
             self._update_score_label()
+            self._flash_cell(captured[0], captured[1])
 
         promoted = False
         if self.L[tc][tl][1] == 1:
@@ -503,7 +699,6 @@ class DameGUI(ctk.CTk):
             self._chain_count += 1
         self._add_history(fc, fl, tc, tl, is_cap, captured, promoted)
 
-        # ── rafle: chain capture check ──
         if is_cap and not promoted and _has_captures(self.L, tc, tl, v):
             self._chain_piece = (tc, tl)
             J2 = jeu_possible(self.L, tc, tl, DIAGS, v, None)
@@ -513,12 +708,132 @@ class DameGUI(ctk.CTk):
                 f"Rafle! Capture en chaîne depuis {cell_name(tc, tl)}"
             )
             self._play_sound(True, False)
-            return
+            return True
 
         self._chain_piece = None
         self._chain_count = 0
         self._play_sound(is_cap, promoted)
         self._next_turn()
+        return False
+
+    # ── click (human) ──
+
+    def _on_click(self, col, ligne):
+        if self._game_over or self._is_ai_turn():
+            return
+        dest = next(
+            (m for m in self.hover_moves if m[0] == col and m[1] == ligne), None
+        )
+        if not dest or not self.hover_piece:
+            return
+        fc, fl = self.hover_piece
+        tc, tl, is_cap = dest
+        self._execute_move(fc, fl, tc, tl, is_cap)
+
+    # ── AI ──
+
+    def _is_ai_turn(self):
+        return (
+            self._ai_mode is not None
+            and self.current_player == 2
+            and not self._game_over
+        )
+
+    def _change_ai_mode(self, label):
+        self._ai_mode = AI_MODES.get(label)
+        if self._ai_mode:
+            self.ai = SimpleAI(self._ai_mode, self.c, self.l)
+            self.append_log(f"Mode IA activé: {label}")
+            if self._is_ai_turn():
+                self.after(600, self._ai_move)
+        else:
+            self.ai = None
+            self.append_log("Mode 2 joueurs activé")
+
+    def _ai_move(self):
+        if not self._is_ai_turn():
+            return
+
+        if self._chain_piece:
+            self._ai_chain_step()
+            return
+
+        v = 0
+        move = self.ai.choose_move(self.L, v)
+        if not move:
+            self.label_tour.configure(text="Les Noirs ont gagné!")
+            self.append_log("=== IA bloquée. Les Noirs ont gagné! ===")
+            self._game_over = True
+            self._play_victory_sound()
+            return
+
+        fc, fl, tc, tl, is_cap = move
+        self._apply_hover((fc, fl), [(tc, tl, is_cap)])
+        self.append_log(f"🤖 IA joue: {cell_name(fc, fl)} → {cell_name(tc, tl)}")
+        self.after(
+            450, lambda: self._ai_execute(fc, fl, tc, tl, is_cap)
+        )
+
+    def _ai_execute(self, fc, fl, tc, tl, is_cap):
+        chain = self._execute_move(fc, fl, tc, tl, is_cap)
+        if chain:
+            self.after(500, self._ai_chain_step)
+
+    def _ai_chain_step(self):
+        if not self._chain_piece or self._game_over:
+            return
+        col, ligne = self._chain_piece
+        v = 0
+        J = jeu_possible(self.L, col, ligne, DIAGS, v, None)
+        caps = [m for m in get_moves(self.L, col, ligne, J, v) if m[2]]
+        if not caps:
+            self._chain_piece = None
+            self._chain_count = 0
+            self._next_turn()
+            return
+        if self._ai_mode == "difficile":
+            best, best_s = caps[0], float("-inf")
+            for m in caps:
+                Lc = _copy_board(self.L)
+                do_move(Lc, col, ligne, m[0], m[1], True)
+                s = self.ai._evaluate(Lc, v)
+                if s > best_s:
+                    best_s = s
+                    best = m
+            pick = best
+        else:
+            pick = random.choice(caps)
+        tc, tl, _ = pick
+        self.append_log(
+            f"🤖 IA rafle: {cell_name(col, ligne)} → {cell_name(tc, tl)}"
+        )
+        self._apply_hover((col, ligne), [(tc, tl, True)])
+        self.after(
+            450,
+            lambda: self._ai_execute(col, ligne, tc, tl, True),
+        )
+
+    # ── hint ──
+
+    def _show_hint(self):
+        if self._game_over or self._is_ai_turn():
+            return
+        if self._hint_timer:
+            self.after_cancel(self._hint_timer)
+        v = 1 if self.current_player == 1 else 0
+        helper = SimpleAI("moyen", self.c, self.l)
+        move = helper.choose_move(self.L, v)
+        if not move:
+            self.append_log("Aucun coup disponible!")
+            return
+        fc, fl, tc, tl, is_cap = move
+        self._apply_hover(None, [])
+        self._set_bg(fc, fl, HL_HINT)
+        self._set_bg(tc, tl, HL_HINT)
+        self.append_log(f"💡 Indice: {cell_name(fc, fl)} → {cell_name(tc, tl)}")
+        self._hint_timer = self.after(
+            3000, lambda: (self._set_bg(fc, fl), self._set_bg(tc, tl))
+        )
 
     # ── history ──
 
@@ -553,14 +868,16 @@ class DameGUI(ctk.CTk):
             self.hist_text.configure(state="normal")
             hist = self.hist_text.get("1.0", "end-1c")
             self.hist_text.configure(state="disabled")
-        self.history_stack.append((
-            copy.deepcopy(self.L),
-            self.current_player,
-            self.move_number,
-            copy.deepcopy(self.score),
-            self._last_move,
-            hist,
-        ))
+        self.history_stack.append(
+            (
+                copy.deepcopy(self.L),
+                self.current_player,
+                self.move_number,
+                copy.deepcopy(self.score),
+                self._last_move,
+                hist,
+            )
+        )
 
     def _undo(self):
         if len(self.history_stack) <= 1:
@@ -689,7 +1006,7 @@ class DameGUI(ctk.CTk):
         self.append_log(f"Partie chargée ← {os.path.basename(path)}")
         self._save_state()
 
-    # ── export history ──
+    # ── export ──
 
     def _export_history(self):
         path = filedialog.asksaveasfilename(
@@ -734,16 +1051,20 @@ class DameGUI(ctk.CTk):
         self._log_teams()
         r1 = team_exist(self.L, 1)
         r2 = team_exist(self.L, 2)
-        if not r1:
+        v = 1 if self.current_player == 1 else 0
+        no_moves = not _get_all_moves(self.L, v, self.c, self.l)
+        if not r1 or (self.current_player == 1 and no_moves):
             self.label_tour.configure(text="Les Blancs ont gagné!")
             self.append_log("=== Les Blancs ont gagné! ===")
             self._game_over = True
             self._play_victory_sound()
-        elif not r2:
+        elif not r2 or (self.current_player == 2 and no_moves):
             self.label_tour.configure(text="Les Noirs ont gagné!")
             self.append_log("=== Les Noirs ont gagné! ===")
             self._game_over = True
             self._play_victory_sound()
+        elif self._is_ai_turn():
+            self.after(600, self._ai_move)
 
     # ── timer ──
 
@@ -763,9 +1084,11 @@ class DameGUI(ctk.CTk):
     def _beep_seq(self, notes):
         if not _HAS_WINSOUND:
             return
+
         def _play():
             for freq, dur in notes:
                 winsound.Beep(freq, dur)
+
         threading.Thread(target=_play, daemon=True).start()
 
     def _play_sound(self, is_capture=False, is_promotion=False):
