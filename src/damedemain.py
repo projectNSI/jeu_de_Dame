@@ -113,7 +113,9 @@ def jeu_possible(L: list, c: int, l: int, diags: list, v: int, t: int = None) ->
                     continue
                 
                 # Vérifier si c'est un ennemi (possibilité de capture)
-                if L[new_c][new_l][0] == (2 - v):
+                # CORRIGE: (2-v) détectait notre propre couleur ; (1+v) détecte l'ennemi
+                # v=0 (blancs) → ennemi=1 (noirs) ; v=1 (noirs) → ennemi=2 (blancs)
+                if L[new_c][new_l][0] == (1 + v):
                     # Calculer la position après le saut
                     capture_c = c + 2 * diags[i][0]
                     capture_l = l + 2 * diags[i][1]
@@ -136,30 +138,32 @@ def jeu_possible(L: list, c: int, l: int, diags: list, v: int, t: int = None) ->
             except IndexError:
                 J[i] = 0  # Erreur d'accès, mouvement impossible
     
-    # ✅ DAME (pion promu)
+    # DAME (pion promu) - parcours diagonal complet
     elif L[c][l][1] == 2:
-        # ✅ CORRIGÉ: Initialisation de la liste 2D pour les dames
+        # CORRIGE: la dame parcourt chaque diagonale case par case
+        # Elle peut se déplacer librement sur les cases vides
+        # et capturer en sautant par-dessus un ennemi (atterrissage sur case vide après)
         J = [[0 for _ in range(len(L[0]))] for _ in range(len(L))]
-        
-        for i in range(len(L)):
-            for j in range(len(L[i])):
-                try:
-                    # Test des quatre diagonales pour vérifier l'alignement
-                    if L[i][j][0] == (2 - v) and (
-                        (c - diags[0][0] * (c - i) == i and l - diags[0][1] * (c - j) == j) or
-                        (c - diags[1][0] * (c - i) == i and l - diags[1][1] * (c - j) == j) or
-                        (c - diags[2][0] * (c - i) == i and l - diags[2][1] * (c - j) == j) or
-                        (c - diags[3][0] * (c - i) == i and l - diags[3][1] * (c - j) == j)):
-                        J[i][j] = 1  # Capture possible
-                    
-                    elif L[i][j][0] == 0:
-                        J[i][j] = 2  # Déplacement possible
-                    
-                    else:
-                        J[i][j] = 0  # Impossible
-                
-                except IndexError:
-                    J[i][j] = 0
+
+        for d in diags:
+            dc, dl = d[0], d[1]
+            step = 1
+            found_enemy = False
+            while True:
+                nc = c + dc * step
+                nl = l + dl * step
+                if not (0 <= nc < len(L) and 0 <= nl < len(L[0])):
+                    break
+                cell = L[nc][nl][0]
+                if cell == 0:
+                    J[nc][nl] = 1 if found_enemy else 2
+                elif cell == (1 + v):
+                    if found_enemy:
+                        break
+                    found_enemy = True
+                else:
+                    break
+                step += 1
     
     else:
         # AJOUTE: Cas par défaut

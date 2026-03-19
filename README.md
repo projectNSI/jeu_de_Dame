@@ -1,540 +1,361 @@
-# Jeu de Dame / チェッカーゲーム / Checkers Game
+# Jeu de Dames - Projet NSI
 
-[![Python](https://img.shields.io/badge/Python-3.x-blue.svg)](https://www.python.org/)
-[![Pygame](https://img.shields.io/badge/Pygame-2.x-green.svg)](https://www.pygame.org/)
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+**Projet:** Implémentation d'un jeu de dames en Python avec interface graphique  
+**Classe:** Terminale NSI  
+**Date:** Mars 2026
 
----
+## Guide d'Évaluation
 
-## 🇫🇷 Français | [🇯🇵 日本語](#日本語) | [🇬🇧 English](#english)
+Cette section aide l'enseignant à évaluer le projet efficacement.
 
-### Description
+### Comment Naviguer dans le Projet
 
-Un jeu de dames implémenté en Python avec Pygame. Ce projet éducatif comprend une interface graphique et une logique de jeu modulaire pour apprendre la programmation de jeux.
+Le projet est organisé de manière claire pour faciliter l'évaluation :
 
-### ✨ Fonctionnalités
+#### 1. Code Source (`src/`)
 
-- **Interface Graphique 8×8** avec Pygame
-  - Plateau standard 8×8
-  - Affichage graphique des pions (rouge et bleu)
+- **`src/damedemain.py`** - Logique principale du jeu
+  - Algorithmes de validation des mouvements
+  - Gestion des règles du jeu de dames
+  - Détection de capture et de victoire
+  - Interface en ligne de commande
+
+- **`src/gui_system/graphi_thema.py`** - Interface graphique (Pygame, legacy)
+- **`src/gui_system/dame_gui_ctk.py`** - Interface graphique jouable (CustomTkinter)
+  - Utilise les fonctions de `damedemain.py` sans les modifier
+  - Plateau cliquable + zone de log des appels de fonctions
+  - Affichage des mouvements possibles (vert = déplacement, orange = capture)
+
+#### 2. Documentation (`docs/`)
+
+- **`analyse_logique.md`** - Analyse détaillée de la logique du jeu
+- **`plan_integration.md`** - Plan d'intégration GUI/Logic
+- **`corrections.md`** - Liste des bugs corrigés et améliorations
+
+#### 3. Configuration (`config/`)
+
+- **`règle.json`** - Fichier de configuration des paramètres du jeu
+  - Dimensions du plateau
+  - Nombre de lignes de pions
+  - Paramètres personnalisables
+
+### Critères d'Évaluation Suggérés
+
+#### 1. Logique du Jeu (50%)
+
+- **Validation des mouvements**
+  - Vérification des mouvements légaux (diagonales uniquement)
+  - Respect des directions (blancs vs noirs)
+  - Gestion des limites du plateau
+
+- **Détection de capture**
+  - Identification des prises possibles
+  - Suppression correcte des pions capturés
+  - Calcul des sauts multiples (partiellement implémenté)
+
+- **Alternance des joueurs**
+  - Changement correct de joueur après chaque tour
+  - Vérification de propriété des pions
+
+- **Détection de fin de partie**
+  - Vérification de l'existence de pions pour chaque équipe
+  - Annonce du vainqueur
+
+#### 2. Interface Graphique (30%)
+
+- **Affichage du plateau**
+  - Damier 8x8 avec motif alternant
+  - Pions colorés (rouge/bleu)
+  - Étiquettes de coordonnées
+
+- **Interaction utilisateur**
   - Détection des clics souris
-  - Étiquettes de coordonnées (1-8)
-  - Affichage en temps réel
+  - Feedback visuel
 
-- **Logique de Jeu Modulaire**
-  - Système complet de validation des mouvements
-  - Détection de capture (prise)
-  - Promotion en dame
-  - Vérification des pions amis/ennemis
-  - Détection de fin de partie
-  - Configuration personnalisable via JSON
+- **Qualité du rendu**
+  - Code propre et organisé
+  - Utilisation appropriée de Pygame
 
-- **Documentation Complète**
-  - Plans d'intégration détaillés (FR/JP)
-  - Analyse logique du code
-  - Guide d'implémentation
+#### 3. Documentation et Code (20%)
 
-### 📁 Structure du Projet
+- **Clarté du code**
+  - Noms de variables explicites
+  - Structure logique
+  - Fonctions bien définies
 
-```
-jeu_de_Dame/
-│
-├── dame de main.py            # ⚙️ Logique principale du jeu
-├── GUI_SYSTEM/
-│   └── graphi_thema.py        # 🎨 Interface graphique Pygame
-├── règle.json                 # 📋 Configuration du jeu
-│
-├── logic/
-│   ├── How to integrate all/
-│   │   ├── integration_plan_fr.md   # Plan d'intégration (FR)
-│   │   └── integration_plan_ja.md   # Plan d'intégration (JP)
-│   └── System logic/
-│       ├── analyse_logique_dame.md      # Analyse détaillée (FR)
-│       └── analyse_logique_dame_ja.md   # Analyse détaillée (JP)
-│
-├── PROJECTnsi.code-workspace  # Workspace VS Code
-└── README.md                  # Ce fichier
-```
+- **Commentaires en français**
+  - Documentation des fonctions (docstrings)
+  - Commentaires explicatifs
+  - Code compréhensible
 
-### 🚀 Installation
+- **Documentation technique**
+  - README complet
+  - Documentation de la logique
+  - Plan d'intégration
 
-#### Prérequis
+## Installation et Exécution
+
+### Prérequis
 
 - Python 3.x
 - Pygame 2.x
 
-#### Installation des dépendances
+### Installation des Dépendances
 
 ```bash
-pip install pygame
+pip install pygame customtkinter
 ```
 
-### 🎮 Utilisation
+### Exécuter le Jeu
 
-#### Lancer l'Interface Graphique
+#### Interface CustomTkinter (recommandée, jouable)
 
 ```bash
-python GUI_SYSTEM/graphi_thema.py
+python src/gui_system/dame_gui_ctk.py
 ```
 
-**Interface :**
-- Plateau 8×8 avec damier noir et blanc
+L'interface CustomTkinter offre :
+- Un plateau 8x8 cliquable avec damier
+- Pions noirs (●) et blancs (○), dames (♔/♕)
+- Mouvements possibles en vert (déplacement) et orange (capture)
+- Zone de log affichant tous les appels aux fonctions de `damedemain.py`
+- Promotion automatique en dame
+
+#### Interface Pygame (legacy)
+
+```bash
+python src/gui_system/graphi_thema.py
+```
+
+L'interface Pygame affiche :
+- Un plateau 8x8 avec damier
 - Pions rouges (en haut) et bleus (en bas)
-- Coordonnées affichées (colonnes 1-8, lignes 1-8)
-- Fond vert
+- Détection des clics (position affichée dans la console)
 
-**Fonctionnalités actuelles :**
-- Affichage du plateau
-- Détection des clics (affichée dans la console)
-- Initialisation automatique des pions
-
-#### Tester la Logique du Jeu
+#### Mode Console (Logique Pure)
 
 ```bash
-python "dame de main.py"
+python src/damedemain.py
 ```
 
-**Fonctionnalités :**
-- Configuration interactive du plateau
-- Lecture de la configuration depuis `règle.json`
-- Validation des mouvements
-- Système de capture
+Le mode console permet de :
+- Configurer les paramètres du jeu
+- Jouer tour par tour en entrant les coordonnées
+- Tester la logique sans interface graphique
 
-### 🎯 Règles du Jeu
+## Fonctionnalités Implémentées
 
-1. **Mouvement des pions**
-   - Les pions se déplacent d'une case en diagonale vers l'avant
-   - Les pions blancs avancent vers le bas
-   - Les pions noirs avancent vers le haut
+### Complètes
 
-2. **Captures**
-   - Un pion peut capturer un adversaire en sautant par-dessus
-   - Les captures sont obligatoires quand elles sont possibles
-   - Les captures multiples sont permises
+- [x] Plateau 8x8 avec damier
+- [x] Initialisation des pions (3 lignes par joueur)
+- [x] Pions avec couleurs distinctes
+- [x] Validation des mouvements diagonaux
+- [x] Détection de capture (saut par-dessus ennemi)
+- [x] Alternance correcte des joueurs
+- [x] Détection de victoire (élimination totale)
+- [x] Interface graphique avec Pygame
+- [x] Configuration personnalisable (JSON)
+- [x] Commentaires en français
 
-3. **Promotion en Dame**
-   - Un pion devient dame en atteignant la dernière rangée
-   - Les dames se déplacent sur toute la longueur des diagonales
-   - Les dames peuvent capturer à distance
+### En Cours / Futures Améliorations
 
-4. **Victoire**
-   - Éliminer tous les pions adverses
-   - Bloquer tous les mouvements adverses
+- [x] Promotion en dame (interface CustomTkinter)
+- [ ] Captures multiples en un seul tour
+- [x] Intégration complète GUI + Logique (CustomTkinter)
+- [ ] Animation des mouvements
+- [ ] Sauvegarde/Chargement de partie
 
-### 📚 Documentation
+## Structure du Code
 
-Des documents détaillés sont disponibles dans le dossier `logic/` :
+### `src/damedemain.py`
 
-- **Plans d'intégration** : Guide complet pour intégrer la logique et l'interface
-- **Analyse logique** : Analyse détaillée du code avec identification des bugs
+**Fonctions principales :**
 
-### 🛠️ Développement
+```python
+def creation_de_jeu(L, c, l, N) -> list:
+    """Initialisation du plateau avec paramètres personnalisables"""
+    
+def is_friendly(L: list, c: int, l: int, v: int) -> bool:
+    """Vérifie si le pion appartient au joueur actuel"""
+    
+def jeu_possible(L: list, c: int, l: int, diags: list, v: int) -> list:
+    """Détermine les mouvements possibles pour un pion"""
+    
+def tour(L: list, c: int, l: int, v: int) -> str:
+    """Gère le déroulement d'un tour complet"""
+    
+def team_exist(L: list, v: int) -> bool:
+    """Vérifie si une équipe a encore des pions"""
+```
 
-#### Structure des Données
+**Structure de données :**
 
-**Plateau de jeu** (`dame de main.py`) :
+Le plateau est représenté par une liste 3D :
 ```python
 L[colonne][ligne] = [couleur_pion, type_pion, couleur_case]
-# [0] : 0=vide, 1=noir, 2=blanc
-# [1] : 1=pion, 2=dame
-# [2] : 0=case blanche, 1=case noire
 ```
 
-**Plateau de jeu** (`dame_made_by_chqtGPT.py`) :
+- `couleur_pion` : 0 (vide), 1 (noir), 2 (blanc)
+- `type_pion` : 1 (normal), 2 (dame)
+- `couleur_case` : 0 (blanche), 1 (noire)
+
+### `src/gui_system/graphi_thema.py`
+
+**Fonctionnalités :**
+
+- Initialisation de Pygame
+- Création du plateau graphique 8x8
+- Dessin des pions avec `pygame.draw.circle()`
+- Gestion des événements (clics, fermeture)
+- Boucle de jeu principale avec `pygame.display.update()`
+
+**Constantes :**
+
 ```python
-board[y][x] = 'piece'
-# '.' = vide
-# 'b' = pion noir, 'B' = dame noire
-# 'w' = pion blanc, 'W' = dame blanche
+SCREEN_SIZE = (600, 500)      # Taille de la fenêtre
+BOARD_SIZE = 8                 # Plateau 8x8
+SQUARE_SIZE = 50               # Taille d'une case
+COLOR_BLACK = (0, 0, 0)        # Couleur noire
+COLOR_WHITE = (255, 255, 255)  # Couleur blanche
+COLOR_RED = (255, 0, 0)        # Pions rouges
+COLOR_BLUE = (0, 0, 255)       # Pions bleus
 ```
 
-### 🤝 Contribution
+## Améliorations et Corrections
 
-Les contributions sont les bienvenues ! N'hésitez pas à :
-- Signaler des bugs
-- Proposer des améliorations
-- Soumettre des pull requests
+Consultez [`docs/corrections.md`](docs/corrections.md) pour la liste complète des bugs corrigés.
 
-### 📝 License
+### Corrections Majeures Effectuées
 
-Ce projet est sous licence MIT.
+1. **Initialisation correcte des listes**
+   - Correction : `J = [0] * len(diags)` au lieu de `J = []`
+   - Impact : Évite les erreurs IndexError
 
-### 👨‍💻 Auteurs
+2. **Conversion d'index (1-based vers 0-based)**
+   - Correction : Ajout de `-1` lors de la saisie utilisateur
+   - Impact : Correspondance correcte entre entrée utilisateur et indices du tableau
 
-Projet développé avec l'assistance de l'IA pour l'apprentissage et la démonstration.
+3. **Conditions logiques**
+   - Correction : `if fc != 0 and fc:` au lieu de `if fc != 0 or fc != None:`
+   - Impact : Logique de vérification correcte
 
----
+4. **Boucle de jeu principale**
+   - Ajout : `while team_exist(L, 1) and team_exist(L, 2):`
+   - Impact : Le jeu continue jusqu'à ce qu'une équipe gagne
 
-## 🇯🇵 日本語
+5. **Alternance des joueurs**
+   - Correction : `v = (v + 1) % 2` au lieu de `v += 1 % 2`
+   - Impact : Alternance correcte entre joueur 0 et 1
 
-### 説明
-
-Pythonとpygameで実装された完全なチェッカーゲーム。インタラクティブなグラフィカルインターフェースを備えた、古典的なチェッカーゲームの複数バージョンを提供します。
-
-### ✨ 機能
-
-- **国際チェッカー 10×10** - 国際ルールに準拠した完全版
-  - プロフェッショナルな10×10ボード
-  - 最長の取り方を強制する強制取りルール
-  - 対角線全体を無制限に移動できるキング（ダマ）
-  - メニューとクリック選択を備えた直感的なユーザーインターフェース
-  - 可能な手を強調表示するシステム
-
-- **クラシックチェッカー 8×8** - 伝統的バージョン
-  - 標準8×8ボード
-  - Pygameによるシンプルなグラフィカルインターフェース
-  - マウスクリックによる駒の移動
-  - 座標ラベル付き表示
-
-- **モジュール型ゲームロジック**
-  - 移動検証システム
-  - キャプチャ検出
-  - キング（ダマ）への昇格
-  - ゲーム終了検出
-
-### 📁 プロジェクト構造
+## Architecture du Projet
 
 ```
 jeu_de_Dame/
+├── src/                      # Code source
+│   ├── damedemain.py        # Logique du jeu (390 lignes)
+│   └── gui_system/
+│       └── graphi_thema.py  # Interface Pygame (100 lignes)
 │
-├── dame_made_by_chqtGPT.py    # 🎮 完全版10×10ゲーム（推奨）
-├── GUI_SYSTEM/
-│   └── graphi_thema.py        # 🎨 8×8グラフィカルインターフェース
-├── dame de main.py            # ⚙️ ゲームロジック
-├── règle.json                 # 📋 ゲーム設定
+├── docs/                     # Documentation
+│   ├── analyse_logique.md   # Analyse détaillée de la logique
+│   ├── plan_integration.md  # Plan d'intégration GUI/Logic
+│   └── corrections.md       # Liste des corrections
 │
-├── logic/
-│   ├── How to integrate all/
-│   │   ├── integration_plan_fr.md   # 統合計画（仏語）
-│   │   └── integration_plan_ja.md   # 統合計画（日本語）
-│   └── System logic/
-│       ├── analyse_logique_dame.md      # 詳細分析（仏語）
-│       └── analyse_logique_dame_ja.md   # 詳細分析（日本語）
+├── config/                   # Configuration
+│   └── règle.json           # Paramètres du jeu
 │
-└── README.md                  # このファイル
+├── .gitignore               # Fichiers à ignorer par Git
+└── README.md                # Ce fichier
 ```
 
-### 🚀 インストール
+## Dépendances Externes
 
-#### 必要要件
+- **Pygame** : Bibliothèque pour l'interface graphique
+  - Version recommandée : 2.x
+  - Installation : `pip install pygame`
 
-- Python 3.x
-- Pygame 2.x
+## Tests et Validation
 
-#### 依存関係のインストール
+### Test du Mode Console
 
-```bash
-pip install pygame
-```
+1. Lancer `python src/damedemain.py`
+2. Choisir "non" pour garder les paramètres par défaut
+3. Entrer les coordonnées d'un pion noir (ex: colonne 3, ligne 3)
+4. Vérifier l'affichage des mouvements possibles
+5. Exécuter un mouvement
+6. Vérifier l'alternance du joueur
 
-### 🎮 使用方法
+### Test de l'Interface Graphique
 
-#### 10×10バージョン（推奨）
+1. Lancer `python src/gui_system/graphi_thema.py`
+2. Vérifier l'affichage du plateau 8x8
+3. Vérifier la présence des pions rouges (haut) et bleus (bas)
+4. Cliquer sur différentes cases
+5. Vérifier l'affichage des coordonnées dans la console
 
-```bash
-python "dame_made_by_chqtGPT.py"
-```
+## Difficultés Rencontrées et Solutions
 
-**操作方法：**
-- **マウス**：クリックして駒を選択・移動
-- **メニュー**：プレイ/終了ボタン
-- **ゲーム内ボタン**：リプレイ/終了
+### 1. Bugs dans la Logique Initiale
 
-**ルール：**
-- 黒（⚫）が下から開始
-- 白（⚪）が上から開始
-- 取りは強制
-- 最長の取り方が強制
-- ダマは対角線全体を移動可能
+**Problème :** Le code initial contenait 14 bugs qui empêchaient l'exécution.
 
-#### 8×8バージョン
+**Solution :** Analyse systématique et correction de chaque bug avec documentation détaillée.
 
-```bash
-python GUI_SYSTEM/graphi_thema.py
-```
+### 2. Structure de Données Complexe
 
-### 🎯 ゲームルール
+**Problème :** Liste 3D difficile à comprendre et manipuler.
 
-1. **駒の移動**
-   - 駒は前方の対角線に1マス移動
-   - 白の駒は下に向かって進む
-   - 黒の駒は上に向かって進む
+**Solution :** Documentation claire avec commentaires et schémas explicatifs.
 
-2. **キャプチャ（取り）**
-   - 駒は相手の駒を飛び越えてキャプチャ可能
-   - 可能な場合、キャプチャは強制
-   - 連続キャプチャが可能
+### 3. Intégration GUI/Logic
 
-3. **ダマへの昇格**
-   - 駒が最後の列に到達するとダマになる
-   - ダマは対角線全体を移動可能
-   - ダマは遠距離でキャプチャ可能
+**Problème :** Deux systèmes distincts (GUI et logique) à intégrer.
 
-4. **勝利条件**
-   - 相手の駒をすべて取る
-   - 相手のすべての動きをブロックする
+**Solution :** Plan d'intégration détaillé avec méthode wrapper (en cours).
 
-### 📚 ドキュメント
+## Perspectives d'Amélioration
 
-`logic/`フォルダに詳細なドキュメントがあります：
+### Court Terme
 
-- **統合計画**：ロジックとインターフェースを統合する完全ガイド
-- **ロジック分析**：バグの特定を含むコードの詳細分析
+- Implémenter la promotion en dame
+- Intégrer complètement GUI et logique
+- Ajouter animations de mouvement
 
-### 🛠️ 開発
+### Moyen Terme
 
-#### データ構造
+- Captures multiples obligatoires
+- Mode deux joueurs en réseau
+- Intelligence artificielle (IA)
 
-**ゲームボード** (`dame de main.py`)：
-```python
-L[列][行] = [駒の色, 駒のタイプ, マスの色]
-# [0] : 0=空, 1=黒, 2=白
-# [1] : 1=駒, 2=ダマ
-# [2] : 0=白マス, 1=黒マス
-```
+### Long Terme
 
-**ゲームボード** (`dame_made_by_chqtGPT.py`)：
-```python
-board[y][x] = '駒'
-# '.' = 空
-# 'b' = 黒駒, 'B' = 黒ダマ
-# 'w' = 白駒, 'W' = 白ダマ
-```
+- Variantes du jeu (dames internationales, etc.)
+- Système de classement
+- Tutoriel interactif
 
-### 🤝 貢献
+## Ressources et Références
 
-貢献を歓迎します！以下のことができます：
-- バグを報告
-- 改善を提案
-- プルリクエストを送信
+- **Documentation Pygame** : https://www.pygame.org/docs/
+- **Règles des dames** : https://fr.wikipedia.org/wiki/Dames
+- **Python Official Docs** : https://docs.python.org/3/
 
-### 📝 ライセンス
+## Licence et Crédits
 
-このプロジェクトはMITライセンスの下にあります。
+**Projet éducatif** - NSI (Numérique et Sciences Informatiques)  
+**Établissement:** [Nom du lycée]  
+**Année scolaire:** 2025-2026
 
-### 👨‍💻 作成者
-
-学習とデモンストレーションのためのAI支援プロジェクト。
+Ce projet est réalisé dans le cadre du programme NSI de Terminale.
 
 ---
 
-## 🇬🇧 English
+## Contact
 
-### Description
-
-A complete checkers game implemented in Python with Pygame. This project offers multiple versions of the classic checkers game with an interactive graphical interface.
-
-### ✨ Features
-
-- **International Draughts 10×10** - Full version with international rules
-  - Professional 10×10 board
-  - Mandatory captures with longest capture rule
-  - Kings with unlimited diagonal movement
-  - Intuitive user interface with menu and click selection
-  - Highlighting system for possible moves
-
-- **Classic Checkers 8×8** - Traditional version
-  - Standard 8×8 board
-  - Simple graphical interface with Pygame
-  - Mouse click detection for movements
-  - Display with coordinate labels
-
-- **Modular game logic**
-  - Move validation system
-  - Capture detection
-  - King promotion
-  - Game end detection
-
-### 📁 Project Structure
-
-```
-jeu_de_Dame/
-│
-├── dame_made_by_chqtGPT.py    # 🎮 Complete 10×10 game (recommended)
-├── GUI_SYSTEM/
-│   └── graphi_thema.py        # 🎨 8×8 graphical interface
-├── dame de main.py            # ⚙️ Game logic
-├── règle.json                 # 📋 Game configuration
-│
-├── logic/
-│   ├── How to integrate all/
-│   │   ├── integration_plan_fr.md   # Integration plan (FR)
-│   │   └── integration_plan_ja.md   # Integration plan (JP)
-│   └── System logic/
-│       ├── analyse_logique_dame.md      # Detailed analysis (FR)
-│       └── analyse_logique_dame_ja.md   # Detailed analysis (JP)
-│
-└── README.md                  # This file
-```
-
-### 🚀 Installation
-
-#### Prerequisites
-
-- Python 3.x
-- Pygame 2.x
-
-#### Installing Dependencies
-
-```bash
-pip install pygame
-```
-
-### 🎮 Usage
-
-#### 10×10 Version (Recommended)
-
-```bash
-python "dame_made_by_chqtGPT.py"
-```
-
-**Controls:**
-- **Mouse**: Click to select and move pieces
-- **Menu**: Play/Quit buttons
-- **In-game buttons**: Replay/Quit
-
-**Rules:**
-- Black (⚫) starts at bottom
-- White (⚪) starts at top
-- Captures are mandatory
-- Longest capture is mandatory
-- Kings move across entire diagonals
-
-#### 8×8 Version
-
-```bash
-python GUI_SYSTEM/graphi_thema.py
-```
-
-### 🎯 Game Rules
-
-1. **Piece Movement**
-   - Pieces move one square diagonally forward
-   - White pieces advance downward
-   - Black pieces advance upward
-
-2. **Captures**
-   - A piece can capture an opponent by jumping over it
-   - Captures are mandatory when possible
-   - Multiple captures are allowed
-
-3. **King Promotion**
-   - A piece becomes a king when reaching the last row
-   - Kings can move across entire diagonals
-   - Kings can capture at distance
-
-4. **Victory**
-   - Eliminate all opponent pieces
-   - Block all opponent moves
-
-### 📚 Documentation
-
-Detailed documents are available in the `logic/` folder:
-
-- **Integration Plans**: Complete guide for integrating logic and interface
-- **Logic Analysis**: Detailed code analysis with bug identification
-
-### 🛠️ Development
-
-#### Data Structures
-
-**Game Board** (`dame de main.py`):
-```python
-L[column][row] = [piece_color, piece_type, square_color]
-# [0]: 0=empty, 1=black, 2=white
-# [1]: 1=piece, 2=king
-# [2]: 0=white square, 1=black square
-```
-
-**Game Board** (`dame_made_by_chqtGPT.py`):
-```python
-board[y][x] = 'piece'
-# '.' = empty
-# 'b' = black piece, 'B' = black king
-# 'w' = white piece, 'W' = white king
-```
-
-### 🤝 Contributing
-
-Contributions are welcome! Feel free to:
-- Report bugs
-- Suggest improvements
-- Submit pull requests
-
-### 📝 License
-
-This project is under the MIT License.
-
-### 👨‍💻 Authors
-
-Project developed with AI assistance for learning and demonstration purposes.
+Pour toute question sur ce projet, veuillez contacter :
+- [Nom des élèves]
+- [Email de contact]
 
 ---
 
-## 📸 Screenshots
-
-### 10×10 International Draughts
-- Professional board with highlighting
-- Menu system
-- Capture sequences
-
-### 8×8 Classic Checkers
-- Traditional board layout
-- Coordinate labels
-- Simple interface
-
----
-
-## 🔧 Technical Details
-
-### Technologies Used
-- **Python 3.x**: Main programming language
-- **Pygame 2.x**: Graphics and game engine library
-- **JSON**: Configuration file format
-
-### Key Components
-
-1. **`dame_made_by_chqtGPT.py`**: Full-featured implementation
-   - Complete game loop
-   - Menu system
-   - Move generation with capture sequences
-   - Longest capture rule enforcement
-   - King movement and capture logic
-
-2. **`GUI_SYSTEM/graphi_thema.py`**: Visual interface
-   - Board rendering
-   - Piece drawing
-   - Mouse click handling
-   - Coordinate labels
-
-3. **`dame de main.py`**: Core game logic
-   - Board initialization
-   - Move validation
-   - Capture detection
-   - Win condition checking
-
-### Configuration
-
-Edit `règle.json` to customize game settings:
-```json
-[
-  {
-    "Liste": [],
-    "colonne": 8,
-    "ligne": 8,
-    "ligne_de_pion": 3
-  }
-]
-```
-
----
-
-## 📞 Support
-
-For questions, issues, or suggestions:
-- Open an issue on the project repository
-- Refer to the detailed documentation in the `logic/` folder
-
----
-
-**Enjoy the game! / Bon jeu ! / ゲームを楽しんでください！** 🎮
+*Dernière mise à jour : Mars 2026*
