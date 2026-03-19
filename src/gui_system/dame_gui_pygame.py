@@ -374,13 +374,9 @@ class DameGame:
         self.font_piece = pygame.font.SysFont("segoeui,arial", int(SQ * 0.55), bold=True)
         self.font_coord = pygame.font.SysFont("consolas,courier", 12, bold=True)
 
-        self.board_x = 30
-        self.board_y = 60
-        panel_x = self.board_x + COLS * SQ + 50
-        panel_w = self.W - panel_x - 16
-        half_h = (self.H - 80) // 2 - 6
-        self.hist_panel = LogPanel((panel_x, 10, panel_w, half_h), self.font_sm, "Historique des coups")
-        self.log_panel  = LogPanel((panel_x, 10 + half_h + 12, panel_w, half_h), self.font_sm, "Journal des appels")
+        self._compute_layout()
+        self.hist_panel = LogPanel(self._hist_rect, self.font_sm, "Historique des coups")
+        self.log_panel  = LogPanel(self._log_rect, self.font_sm, "Journal des appels")
 
         self._theme_idx = theme_idx
         self._apply_theme()
@@ -403,6 +399,23 @@ class DameGame:
         self.log_panel.append("=== Démarrage du jeu ===")
         if self._ai_mode:
             self.log_panel.append(f"Mode IA: {self._ai_mode}")
+
+    def _compute_layout(self):
+        self.W, self.H = self.screen.get_size()
+        self.board_x = 30
+        self.board_y = 60
+        panel_x = self.board_x + COLS * SQ + 50
+        panel_w = max(260, self.W - panel_x - 16)
+        half_h = max(180, (self.H - 80) // 2 - 6)
+        self._hist_rect = (panel_x, 10, panel_w, half_h)
+        self._log_rect = (panel_x, 10 + half_h + 12, panel_w, half_h)
+
+    def set_screen(self, screen):
+        self.screen = screen
+        self._compute_layout()
+        self.hist_panel.rect = pygame.Rect(self._hist_rect)
+        self.log_panel.rect = pygame.Rect(self._log_rect)
+        self._build_buttons()
 
     def _init_state(self):
         self.L = create_board(self.c, self.l, N_PAWN_ROWS)
@@ -909,6 +922,15 @@ class Menu:
         self.theme_rect = pygame.Rect(cx + 10, cy - 18, 200, 32)
         self.start_btn = pygame.Rect(cx - 150, cy + 40, 300, 50)
 
+    def set_screen(self, screen):
+        self.screen = screen
+        self.W, self.H = screen.get_size()
+        cx = self.W // 2
+        cy = self.H // 2
+        self.ai_rect = pygame.Rect(cx + 10, cy - 60, 200, 32)
+        self.theme_rect = pygame.Rect(cx + 10, cy - 18, 200, 32)
+        self.start_btn = pygame.Rect(cx - 150, cy + 40, 300, 50)
+
     def draw(self):
         self.screen.fill(BG)
         cx = self.W // 2
@@ -958,13 +980,24 @@ async def main():
         SOUND.enabled = True
     except Exception:
         SOUND.enabled = False
-    screen = pygame.display.set_mode((1120, 700))
+
+    # Desktop: start in fullscreen for immersive play.
+    # Web/Pygbag environments may not allow true fullscreen at startup,
+    # so we gracefully fall back to a large window.
+    try:
+        info = pygame.display.Info()
+        screen = pygame.display.set_mode(
+            (info.current_w, info.current_h), pygame.FULLSCREEN
+        )
+    except Exception:
+        screen = pygame.display.set_mode((1280, 720))
     pygame.display.set_caption("Jeu de Dames")
     clock = pygame.time.Clock()
 
     state = "menu"
     menu = Menu(screen)
     game = None
+    is_fullscreen = True
 
     running = True
     while running:
@@ -995,6 +1028,17 @@ async def main():
                     elif event.key == pygame.K_s: game.save_game()
                     elif event.key == pygame.K_o: game.load_game()
                     elif event.key == pygame.K_e: game.export_history()
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_F11:
+                is_fullscreen = not is_fullscreen
+                if is_fullscreen:
+                    info = pygame.display.Info()
+                    screen = pygame.display.set_mode((info.current_w, info.current_h), pygame.FULLSCREEN)
+                else:
+                    screen = pygame.display.set_mode((1280, 720))
+                if menu:
+                    menu.set_screen(screen)
+                if game:
+                    game.set_screen(screen)
 
         if state == "menu":
             menu.draw()

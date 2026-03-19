@@ -23,6 +23,11 @@ python src/gui_system/dame_gui_pygame.py
 
 Le menu principal apparaît. Choisissez le mode de jeu et le thème, puis cliquez **Commencer**.
 
+### Affichage plein écran (Pygame)
+
+- Le jeu Pygame démarre en plein écran.
+- `F11` permet de basculer entre plein écran et fenêtre.
+
 ---
 
 ## Structure du projet
@@ -112,7 +117,28 @@ jeu_de_Dame/
 | Ctrl+N | Nouvelle partie |
 | Ctrl+S | Sauvegarder |
 | Ctrl+O | Charger une partie |
+| Ctrl+E | Exporter l'historique |
 | Ctrl+H | Afficher un indice |
+
+---
+
+## Build Web (Pygbag)
+
+### Générer la version web
+
+```bash
+pip install pygbag
+pygbag src/gui_system/dame_gui_pygame.py
+```
+
+### Sortie de build
+
+- Les fichiers web sont générés dans `build/web/` (ou `build/` selon l'environnement).
+
+### Déployer gratuitement
+
+- **GitHub Pages** : publier le contenu de `build/web/` sur la branche `gh-pages` (ou dossier `docs/`).
+- **itch.io** : zipper le contenu de `build/web/` et l'uploader en projet HTML.
 
 ---
 
@@ -121,3 +147,4 @@ jeu_de_Dame/
 - Python 3.8+
 - `customtkinter` (pour la version bureau) : `pip install customtkinter`
 - `pygame` (pour la version Pygame / web) : `pip install pygame`
+- `pygbag` (pour compiler en web) : `pip install pygbag`
