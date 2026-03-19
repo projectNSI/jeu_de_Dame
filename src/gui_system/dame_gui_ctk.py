@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 """
 Interface graphique du Jeu de Dames avec CustomTkinter.
-Utilise les fonctions de damedemain.py sans les modifier.
-Tous les appels aux fonctions damedemain sont tracés dans la zone de log.
+Layout: gauche = plateau, droite haut = historique, droite bas = log des appels.
 """
 
 import sys
 import os
 import json
+import copy
 import threading
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -22,24 +22,26 @@ except ImportError:
     _HAS_WINSOUND = False
 
 DIAGS = [[-1, 1], [1, 1], [-1, -1], [1, -1]]
-SQUARE_SIZE = 70
-LOG_HEIGHT = 200
-PIECE_FONT = 48
+SQUARE_SIZE = 68
+PIECE_FONT = 44
 
 DARK_SQ = "#8B4513"
 LIGHT_SQ = "#DEB887"
 HL_PIECE = "#4a7c59"
 HL_MOVE = "#7FDB7F"
-HL_CAPTURE = "#c45c26"
-HL_CAPTURE_LAND = "#7FDB7F"
 CLR_NOIR = "#1E90FF"
 CLR_BLANC = "#DC143C"
 
-BEEP_FREQ = 600
-BEEP_DURATION = 80
+
+def col_letter(c):
+    return chr(ord("A") + c)
 
 
-def log_call(gui, name: str, args: tuple, result):
+def cell_name(col, ligne):
+    return f"{col_letter(col)}{ligne + 1}"
+
+
+def log_call(gui, name, args, result):
     gui.append_log(f"→ {name}({', '.join(str(a) for a in args)}) = {result}")
 
 
@@ -55,10 +57,6 @@ def create_board(c, l, N):
 
 
 def get_moves(L, col, ligne, J, v):
-    """Convertit le retour de jeu_possible en liste de (to_col, to_ligne, is_capture).
-    Blancs (v=0) avancent vers cols basses → diags 0,2 ; Noirs (v=1) vers cols hautes → diags 1,3.
-    Captures autorisées dans les 4 directions (règle jeu de dames).
-    """
     if not J:
         return []
     moves = []
@@ -80,7 +78,6 @@ def get_moves(L, col, ligne, J, v):
 
 
 def do_move(L, fc, fl, tc, tl, capture):
-    """Exécute un mouvement. Retourne (col, ligne) de la pièce capturée ou None."""
     piece = L[fc][fl].copy()
     L[fc][fl] = [0, 0, L[fc][fl][2]]
     captured = None
@@ -128,25 +125,61 @@ class DameGUI(ctk.CTk):
         self.hover_moves = []
         self._game_over = False
         self._clear_timer = None
+        self.move_number = 0
+        self.history_stack = []  # [(L_copy, player, move_number)]
 
         board_px = max(self.c, self.l) * SQUARE_SIZE
-        self.geometry(f"{board_px + 40}x{board_px + LOG_HEIGHT + 100}")
+        self.geometry(f"{board_px + 520}x{board_px + 80}")
         try:
             self.state("zoomed")
         except Exception:
             pass
 
-        main = ctk.CTkFrame(self, fg_color="transparent")
-        main.pack(fill="both", expand=True, padx=10, pady=10)
+        # ── layout: left = board, right = panels ──
+
+        root_frame = ctk.CTkFrame(self, fg_color="transparent")
+        root_frame.pack(fill="both", expand=True, padx=10, pady=10)
+        root_frame.grid_columnconfigure(0, weight=0)
+        root_frame.grid_columnconfigure(1, weight=1)
+        root_frame.grid_rowconfigure(0, weight=1)
+
+        # left: board + turn label
+        left = ctk.CTkFrame(root_frame, fg_color="transparent")
+        left.grid(row=0, column=0, sticky="ns", padx=(0, 10))
 
         self.label_tour = ctk.CTkLabel(
-            main, text="Tour des Noirs", font=("Arial", 22, "bold")
+            left, text="Tour des Noirs (●)", font=("Arial", 20, "bold")
         )
-        self.label_tour.pack(pady=(0, 5))
+        self.label_tour.pack(pady=(0, 4))
 
-        board_frame = ctk.CTkFrame(main, fg_color="#2b2b2b", corner_radius=4)
-        board_frame.pack()
+        board_outer = ctk.CTkFrame(left, fg_color="#2b2b2b", corner_radius=4)
+        board_outer.pack()
+
+        # column headers (A-H)
+        header = ctk.CTkFrame(board_outer, fg_color="transparent")
+        header.pack(fill="x", padx=2)
+        ctk.CTkLabel(header, text="", width=28).pack(side="left")
+        for col in range(self.c):
+            ctk.CTkLabel(
+                header, text=col_letter(col), width=SQUARE_SIZE,
+                font=("Consolas", 12, "bold"), text_color="#aaa"
+            ).pack(side="left")
+
+        board_body = ctk.CTkFrame(board_outer, fg_color="transparent")
+        board_body.pack()
+
+        board_frame = ctk.CTkFrame(board_body, fg_color="#2b2b2b", corner_radius=0)
+        board_frame.pack(side="right")
         board_frame.bind("<Leave>", lambda e: self._schedule_clear())
+
+        # row numbers
+        row_labels = ctk.CTkFrame(board_body, fg_color="transparent")
+        row_labels.pack(side="left", fill="y")
+        for ligne in range(self.l):
+            ctk.CTkLabel(
+                row_labels, text=str(ligne + 1), height=SQUARE_SIZE,
+                width=28, font=("Consolas", 12, "bold"), text_color="#aaa"
+            ).pack()
 
         self.squares = []
         for ligne in range(self.l):
@@ -155,36 +188,64 @@ class DameGUI(ctk.CTk):
                 base = DARK_SQ if self.L[col][ligne][2] == 1 else LIGHT_SQ
                 sq = ctk.CTkButton(
                     board_frame,
-                    width=SQUARE_SIZE - 2,
-                    height=SQUARE_SIZE - 2,
-                    text="",
-                    font=("Arial", PIECE_FONT),
-                    fg_color=base,
-                    hover_color=base,
-                    text_color="#FFFFFF",
+                    width=SQUARE_SIZE - 2, height=SQUARE_SIZE - 2,
+                    text="", font=("Arial", PIECE_FONT),
+                    fg_color=base, hover_color=base, text_color="#FFFFFF",
+                    corner_radius=0,
                     command=lambda c=col, l=ligne: self._on_click(c, l),
                 )
                 sq.bind("<Enter>", lambda e, c=col, l=ligne: self._on_enter(c, l))
-                sq.grid(row=ligne, column=col, padx=1, pady=1)
+                sq.grid(row=ligne, column=col, padx=0, pady=0)
                 row.append(sq)
             self.squares.append(row)
 
         self._draw_all_pieces()
 
-        log_frame = ctk.CTkFrame(main, fg_color="#1a1a1a", corner_radius=4)
-        log_frame.pack(fill="x", pady=(10, 0))
-        ctk.CTkLabel(
-            log_frame, text="Journal des appels (log)", font=("Arial", 18, "bold")
-        ).pack(anchor="w", padx=12, pady=(8, 4))
-        self.log_text = ctk.CTkTextbox(
-            log_frame, height=LOG_HEIGHT, font=("Consolas", 14), state="disabled"
+        # undo button
+        btn_frame = ctk.CTkFrame(left, fg_color="transparent")
+        btn_frame.pack(pady=(6, 0))
+        self.undo_btn = ctk.CTkButton(
+            btn_frame, text="⟲ Annuler le coup", font=("Arial", 14),
+            width=200, height=36, command=self._undo,
         )
-        self.log_text.pack(fill="x", padx=12, pady=(0, 12))
+        self.undo_btn.pack()
+
+        # right: top = history, bottom = log
+        right = ctk.CTkFrame(root_frame, fg_color="transparent")
+        right.grid(row=0, column=1, sticky="nsew")
+        right.grid_rowconfigure(0, weight=1)
+        right.grid_rowconfigure(1, weight=1)
+        right.grid_columnconfigure(0, weight=1)
+
+        # history panel
+        hist_frame = ctk.CTkFrame(right, fg_color="#1e1e1e", corner_radius=6)
+        hist_frame.grid(row=0, column=0, sticky="nsew", pady=(0, 6))
+        ctk.CTkLabel(
+            hist_frame, text="Historique des coups",
+            font=("Arial", 16, "bold")
+        ).pack(anchor="w", padx=12, pady=(8, 2))
+        self.hist_text = ctk.CTkTextbox(
+            hist_frame, font=("Consolas", 14), state="disabled"
+        )
+        self.hist_text.pack(fill="both", expand=True, padx=10, pady=(0, 10))
+
+        # log panel
+        log_frame = ctk.CTkFrame(right, fg_color="#1a1a1a", corner_radius=6)
+        log_frame.grid(row=1, column=0, sticky="nsew")
+        ctk.CTkLabel(
+            log_frame, text="Journal des appels (log)",
+            font=("Arial", 16, "bold")
+        ).pack(anchor="w", padx=12, pady=(8, 2))
+        self.log_text = ctk.CTkTextbox(
+            log_frame, font=("Consolas", 13), state="disabled"
+        )
+        self.log_text.pack(fill="both", expand=True, padx=10, pady=(0, 10))
 
         self.append_log("=== Démarrage du jeu ===")
         self._log_teams()
+        self._save_state()
 
-    # ── rendering (targeted) ──
+    # ── rendering ──
 
     def _base_color(self, col, ligne):
         return DARK_SQ if self.L[col][ligne][2] == 1 else LIGHT_SQ
@@ -210,28 +271,23 @@ class DameGUI(ctk.CTk):
     def _draw_all_pieces(self):
         for col in range(self.c):
             for ligne in range(self.l):
-                txt, tc = self._piece_txt(col, ligne)
-                self.squares[ligne][col].configure(text=txt, text_color=tc)
+                self._draw_cell(col, ligne)
 
-    # ── hover (only touches affected cells) ──
+    # ── hover ──
 
     def _apply_hover(self, piece, moves):
-        """Clear old highlights, apply new ones. Only updates changed cells."""
         old = set()
         if self.hover_piece:
             old.add(self.hover_piece)
         for m in self.hover_moves:
             old.add((m[0], m[1]))
-
         new_map = {}
         if piece:
             new_map[piece] = HL_PIECE
         for m in moves:
             new_map[(m[0], m[1])] = HL_MOVE
-
         self.hover_piece = piece
         self.hover_moves = moves
-
         for cell in old:
             if cell not in new_map:
                 self._set_bg(cell[0], cell[1])
@@ -243,7 +299,6 @@ class DameGUI(ctk.CTk):
             self._apply_hover(None, [])
 
     def _schedule_clear(self):
-        """board_frame Leave → schedule clear (cancelled if Enter fires on a child)."""
         if self._clear_timer:
             self.after_cancel(self._clear_timer)
         self._clear_timer = self.after(60, self._do_scheduled_clear)
@@ -264,7 +319,6 @@ class DameGUI(ctk.CTk):
         dests = {(m[0], m[1]) for m in self.hover_moves}
         if (col, ligne) in dests or (col, ligne) == self.hover_piece:
             return
-
         v = 1 if self.current_player == 1 else 0
         if is_friendly(self.L, col, ligne, v):
             J = jeu_possible(self.L, col, ligne, DIAGS, v, None)
@@ -279,6 +333,8 @@ class DameGUI(ctk.CTk):
         dest = next((m for m in self.hover_moves if m[0] == col and m[1] == ligne), None)
         if not dest or not self.hover_piece:
             return
+
+        self._save_state()
 
         fc, fl = self.hover_piece
         tc, tl, is_cap = dest
@@ -296,28 +352,82 @@ class DameGUI(ctk.CTk):
         if captured:
             cells_to_redraw.add(captured)
 
+        promoted = False
         if self.L[tc][tl][1] == 1:
             if (self.current_player == 1 and tc == self.c - 1) or (
                 self.current_player == 2 and tc == 0
             ):
                 self.L[tc][tl][1] = 2
+                promoted = True
                 self.append_log("Promotion en dame!")
 
         for c, l in cells_to_redraw:
             self._draw_cell(c, l)
 
-        cap_txt = " (capture)" if is_cap else ""
-        self.append_log(f"Déplacement: ({fc},{fl}) → ({tc},{tl}){cap_txt}")
+        self.move_number += 1
+        self._add_history(fc, fl, tc, tl, is_cap, captured, promoted)
 
-        self._play_beep(is_cap)
+        self._play_sound(is_cap, promoted)
         self._next_turn()
 
-    # ── turn management ──
+    # ── history ──
+
+    def _add_history(self, fc, fl, tc, tl, is_cap, captured, promoted):
+        player = "Noir" if self.current_player == 1 else "Blanc"
+        piece = self.L[tc][tl]
+        kind = "Dame" if piece[1] == 2 and not promoted else "Pion"
+        src = cell_name(fc, fl)
+        dst = cell_name(tc, tl)
+        parts = [f"#{self.move_number:>3}  {player:<6} {kind:<5} {src} → {dst}"]
+        if is_cap and captured:
+            parts.append(f"  ✕ capture en {cell_name(*captured)}")
+        if promoted:
+            parts.append("  ★ promu en Dame")
+        line = "".join(parts)
+        self.hist_text.configure(state="normal")
+        self.hist_text.insert("end", line + "\n")
+        self.hist_text.see("end")
+        self.hist_text.configure(state="disabled")
+
+    # ── undo ──
+
+    def _save_state(self):
+        state = (
+            copy.deepcopy(self.L),
+            self.current_player,
+            self.move_number,
+        )
+        self.history_stack.append(state)
+
+    def _undo(self):
+        if len(self.history_stack) <= 1:
+            return
+        self.history_stack.pop()
+        L_copy, player, move_num = self.history_stack[-1]
+        self.L = copy.deepcopy(L_copy)
+        self.current_player = player
+        self.move_number = move_num
+        self._game_over = False
+        self.hover_piece = None
+        self.hover_moves = []
+        self._draw_all_pieces()
+        self.label_tour.configure(
+            text="Tour des Noirs (●)" if self.current_player == 1 else "Tour des Blancs (●)"
+        )
+        self.hist_text.configure(state="normal")
+        lines = self.hist_text.get("1.0", "end").rstrip("\n").split("\n")
+        if lines and lines[-1]:
+            self.hist_text.delete(f"{len(lines)}.0", "end")
+        self.hist_text.configure(state="disabled")
+        self.append_log(f"← Annulation du coup #{move_num + 1}")
+        self._play_undo_sound()
+
+    # ── turn ──
 
     def _next_turn(self):
         self.current_player = 2 if self.current_player == 1 else 1
         self.label_tour.configure(
-            text="Tour des Noirs" if self.current_player == 1 else "Tour des Blancs"
+            text="Tour des Noirs (●)" if self.current_player == 1 else "Tour des Blancs (●)"
         )
         self._log_teams()
         r1 = team_exist(self.L, 1)
@@ -326,20 +436,37 @@ class DameGUI(ctk.CTk):
             self.label_tour.configure(text="Les Blancs ont gagné!")
             self.append_log("=== Les Blancs ont gagné! ===")
             self._game_over = True
+            self._play_victory_sound()
         elif not r2:
             self.label_tour.configure(text="Les Noirs ont gagné!")
             self.append_log("=== Les Noirs ont gagné! ===")
             self._game_over = True
+            self._play_victory_sound()
 
     # ── sound ──
 
-    def _play_beep(self, is_capture=False):
-        """Son de feedback après un mouvement (non-bloquant)."""
+    def _beep_sequence(self, notes):
+        """Play a sequence of (freq, duration_ms) in a thread."""
         if not _HAS_WINSOUND:
             return
-        freq = 800 if is_capture else BEEP_FREQ
-        dur = BEEP_DURATION
-        threading.Thread(target=winsound.Beep, args=(freq, dur), daemon=True).start()
+        def _play():
+            for freq, dur in notes:
+                winsound.Beep(freq, dur)
+        threading.Thread(target=_play, daemon=True).start()
+
+    def _play_sound(self, is_capture=False, is_promotion=False):
+        if is_promotion:
+            self._beep_sequence([(880, 100), (1100, 100), (1320, 150)])
+        elif is_capture:
+            self._beep_sequence([(700, 80), (900, 120)])
+        else:
+            self._beep_sequence([(660, 120)])
+
+    def _play_undo_sound(self):
+        self._beep_sequence([(500, 80), (400, 120)])
+
+    def _play_victory_sound(self):
+        self._beep_sequence([(880, 120), (1100, 120), (1320, 120), (1760, 250)])
 
     # ── log ──
 
