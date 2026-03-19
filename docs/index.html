@@ -388,6 +388,30 @@ frameborder="1"
         info.hidden = debug_hidden
         box.hidden =  debug_hidden
 
+        // Force user-gesture unlock path for some browsers/extensions.
+        const unlock_runtime = () => {
+            try {
+                window.MM = window.MM || {};
+                window.MM.UME = true;
+                if (window.canvas) {
+                    window.canvas.focus();
+                }
+                if (window.infobox) {
+                    window.infobox.style.display = "none";
+                }
+            } catch (e) {
+                console.warn("unlock_runtime failed", e);
+            }
+        };
+
+        window.addEventListener("pointerdown", unlock_runtime, { passive: true });
+        window.addEventListener("touchstart", unlock_runtime, { passive: true });
+        window.addEventListener("keydown", unlock_runtime, { passive: true });
+        if (window.infobox) {
+            window.infobox.addEventListener("click", unlock_runtime);
+            window.infobox.addEventListener("touchstart", unlock_runtime, { passive: true });
+        }
+
         show_infobox()
     }
 
