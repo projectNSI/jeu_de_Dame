@@ -11,7 +11,6 @@ import os
 import json
 import copy
 import time
-import random
 import threading
 from datetime import datetime
 from tkinter import filedialog
@@ -19,7 +18,16 @@ from tkinter import filedialog
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import customtkinter as ctk
+import ffdje
+from ai_engine import DraughtsAI
 from damedemain import is_friendly, jeu_possible, team_exist
+
+# Codes secrets (français ou international) pour activer la force maximale de l'IA
+ULTRA_SECRETS = ("ULTIME", "ULTRA")
+
+
+def _ultra_buffer_matches(buf: str) -> bool:
+    return any(secret in buf for secret in ULTRA_SECRETS)
 
 try:
     import winsound
@@ -29,7 +37,7 @@ except ImportError:
     _HAS_WINSOUND = False
 
 DIAGS = [[-1, 1], [1, 1], [-1, -1], [1, -1]]
-SQUARE_SIZE = 68
+SQUARE_SIZE = 52
 PIECE_FONT = 44
 
 DARK_SQ = "#8B4513"
@@ -40,6 +48,7 @@ HL_LAST_FROM = "#b8a960"
 HL_LAST_TO = "#c8b970"
 HL_CHAIN = "#e08040"
 HL_HINT = "#d4a017"
+HL_FLUO_CAPTURE = "#39FF14"
 CLR_NOIR = "#111111"
 CLR_BLANC = "#F0F0F0"
 
@@ -109,68 +118,6 @@ def get_moves(L, col, ligne, J, v):
     return moves
 
 
-def do_move(L, fc, fl, tc, tl, capture):
-    piece = L[fc][fl].copy()
-    L[fc][fl] = [0, 0, L[fc][fl][2]]
-    captured = None
-    if capture:
-        dc = 1 if tc > fc else -1
-        dl = 1 if tl > fl else -1
-        sc, sl = fc + dc, fl + dl
-        while (sc, sl) != (tc, tl):
-            if L[sc][sl][0] != 0:
-                L[sc][sl][0], L[sc][sl][1] = 0, 0
-                captured = (sc, sl)
-                break
-            sc += dc
-            sl += dl
-    L[tc][tl][0], L[tc][tl][1] = piece[0], piece[1]
-    return captured
-
-
-def _has_captures(L, col, ligne, v):
-    J = jeu_possible(L, col, ligne, DIAGS, v, None)
-    if not J:
-        return False
-    if isinstance(J[0], list):
-        return any(
-            J[tc][tl] == 1 for tc in range(len(J)) for tl in range(len(J[0]))
-        )
-    return any(j == 1 for j in J)
-
-
-def _any_capture_available(L, v, c_max, l_max):
-    for col in range(c_max):
-        for ligne in range(l_max):
-            if is_friendly(L, col, ligne, v) and _has_captures(L, col, ligne, v):
-                return True
-    return False
-
-
-def _get_all_moves(L, v, c_max, l_max):
-    moves = []
-    must_cap = _any_capture_available(L, v, c_max, l_max)
-    for col in range(c_max):
-        for ligne in range(l_max):
-            if is_friendly(L, col, ligne, v):
-                J = jeu_possible(L, col, ligne, DIAGS, v, None)
-                mv = get_moves(L, col, ligne, J, v)
-                if must_cap:
-                    mv = [m for m in mv if m[2]]
-                for m in mv:
-                    moves.append((col, ligne, m[0], m[1], m[2]))
-    return moves
-
-
-def _sim_move(L, move, c_max):
-    fc, fl, tc, tl, is_cap = move
-    do_move(L, fc, fl, tc, tl, is_cap)
-    if L[tc][tl][1] == 1:
-        color = L[tc][tl][0]
-        if (color == 1 and tc == c_max - 1) or (color == 2 and tc == 0):
-            L[tc][tl][1] = 2
-
-
 # ── sound ──
 
 
@@ -185,99 +132,16 @@ def _beep_seq(notes):
     threading.Thread(target=_play, daemon=True).start()
 
 
-# ── AI ──
-
-
-class SimpleAI:
-    def __init__(self, difficulty, c, l):
-        self.difficulty = difficulty
-        self.c = c
-        self.l = l
-
-    def choose_move(self, L, v):
-        moves = _get_all_moves(L, v, self.c, self.l)
-        if not moves:
-            return None
-        if self.difficulty == "facile":
-            return random.choice(moves)
-        if self.difficulty == "moyen":
-            return self._greedy(L, v, moves)
-        return self._minimax_root(L, v, moves)
-
-    def _greedy(self, L, v, moves):
-        scored = []
-        for m in moves:
-            Lc = _copy_board(L)
-            _sim_move(Lc, m, self.c)
-            scored.append((self._evaluate(Lc, v), m))
-        scored.sort(key=lambda x: x[0], reverse=True)
-        best = scored[0][0]
-        top = [s for s in scored if s[0] == best]
-        return random.choice(top)[1]
-
-    def _minimax_root(self, L, v, moves):
-        best_score = float("-inf")
-        best_moves = []
-        for m in moves:
-            Lc = _copy_board(L)
-            _sim_move(Lc, m, self.c)
-            s = self._minimax(Lc, 2, False, v, float("-inf"), float("inf"))
-            if s > best_score:
-                best_score = s
-                best_moves = [m]
-            elif s == best_score:
-                best_moves.append(m)
-        return random.choice(best_moves) if best_moves else moves[0]
-
-    def _minimax(self, L, depth, maximizing, ai_v, alpha, beta):
-        if depth == 0:
-            return self._evaluate(L, ai_v)
-        v = ai_v if maximizing else (1 - ai_v)
-        moves = _get_all_moves(L, v, self.c, self.l)
-        if not moves:
-            return -999 if maximizing else 999
-        if maximizing:
-            val = float("-inf")
-            for m in moves:
-                Lc = _copy_board(L)
-                _sim_move(Lc, m, self.c)
-                val = max(
-                    val,
-                    self._minimax(Lc, depth - 1, False, ai_v, alpha, beta),
-                )
-                alpha = max(alpha, val)
-                if beta <= alpha:
-                    break
-            return val
-        val = float("inf")
-        for m in moves:
-            Lc = _copy_board(L)
-            _sim_move(Lc, m, self.c)
-            val = min(
-                val,
-                self._minimax(Lc, depth - 1, True, ai_v, alpha, beta),
-            )
-            beta = min(beta, val)
-            if beta <= alpha:
-                break
-        return val
-
-    def _evaluate(self, L, ai_v):
-        score = 0
-        for col in range(self.c):
-            for ligne in range(self.l):
-                p = L[col][ligne]
-                if p[0] == 0:
-                    continue
-                val = 5.0 if p[1] == 2 else 1.0
-                if p[1] == 1:
-                    if p[0] == 1:
-                        val += col * 0.15
-                    else:
-                        val += (self.c - 1 - col) * 0.15
-                p_v = 1 if p[0] == 1 else 0
-                score += val if p_v == ai_v else -val
-        return score
+def _play_ultra_stinger(enabled: bool):
+    if not _HAS_WINSOUND:
+        return
+    if enabled:
+        _beep_seq([
+            (220, 55), (277, 50), (330, 50), (415, 55), (523, 65),
+            (659, 75), (784, 90), (988, 105), (1175, 130), (1319, 190),
+        ])
+    else:
+        _beep_seq([(988, 65), (784, 75), (659, 85), (523, 95), (392, 115), (262, 140)])
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -288,6 +152,8 @@ class DameGUI(ctk.CTk):
         self.resizable(True, True)
 
         self._load_config()
+        self._ultra_unlocked = False
+        self._ultra_buffer = ""
 
         board_px = max(self.c, self.l) * SQUARE_SIZE
         self.geometry(f"{board_px + 560}x{board_px + 120}")
@@ -311,6 +177,44 @@ class DameGUI(ctk.CTk):
                     self.N = cfg.get("ligne_de_pion", 3)
                 return
         self.c, self.l, self.N = 8, 8, 3
+
+    def _effective_ai_difficulty(self):
+        if not self._ai_mode:
+            return None
+        if self._ultra_unlocked:
+            return "ultra"
+        return self._ai_mode
+
+    def _rebuild_ai(self):
+        d = self._effective_ai_difficulty()
+        self.ai = DraughtsAI(d, self.c, self.l) if d else None
+
+    def _on_ultra_keypress(self, event):
+        if not self._ai_mode:
+            return
+        ch = event.char
+        if not ch or not ch.isalnum():
+            return
+        self._ultra_buffer = (self._ultra_buffer + ch.upper())[-24:]
+        if _ultra_buffer_matches(self._ultra_buffer):
+            self._ultra_unlocked = not self._ultra_unlocked
+            self._ultra_buffer = ""
+            self._rebuild_ai()
+            _play_ultra_stinger(self._ultra_unlocked)
+            if self._ultra_unlocked:
+                self.append_log(
+                    "☠ Mode IA « force maximale » activé (commande secrète)."
+                )
+                self.append_log(
+                    "Recherche très profonde, y compris pendant les rafles."
+                )
+            else:
+                self.append_log(
+                    "☠ Mode IA « force maximale » désactivé."
+                )
+                self.append_log(
+                    "Retour au niveau choisi dans le menu (Facile / Moyen / Difficile)."
+                )
 
     # ══════════════════════════════════════════════════════════════
     # MAIN MENU
@@ -399,8 +303,7 @@ class DameGUI(ctk.CTk):
         self._menu_frame.destroy()
         self._init_game_state()
         self._ai_mode = AI_MODES.get(mode_label)
-        if self._ai_mode:
-            self.ai = SimpleAI(self._ai_mode, self.c, self.l)
+        self._rebuild_ai()
         self._current_theme = theme_label
         if theme_label in THEMES:
             global DARK_SQ, LIGHT_SQ
@@ -444,7 +347,7 @@ class DameGUI(ctk.CTk):
 
     def _init_game_state(self):
         self.L = create_board(self.c, self.l, self.N)
-        self.current_player = 1
+        self.current_player = 2
         self.hover_piece = None
         self.hover_moves = []
         self._game_over = False
@@ -462,6 +365,14 @@ class DameGUI(ctk.CTk):
         self.ai = None
         self._hint_timer = None
         self._loaded_hist = ""
+        self._ultra_unlocked = False
+        self._ultra_buffer = ""
+        self._ai_busy = False
+        self._ai_task_gen = 0
+
+    def _bump_ai_gen(self):
+        self._ai_task_gen += 1
+        self._ai_busy = False
 
     def _start_game(self):
         self.bind("<Control-z>", lambda e: self._undo())
@@ -471,6 +382,7 @@ class DameGUI(ctk.CTk):
         self.bind("<Control-h>", lambda e: self._show_hint())
 
         self._build_ui()
+        self.bind("<KeyPress>", self._on_ultra_keypress)
         self.append_log("=== Démarrage du jeu ===")
         if self._ai_mode:
             self.append_log(f"Mode IA: {self._ai_mode}")
@@ -479,7 +391,8 @@ class DameGUI(ctk.CTk):
         self._tick_timer()
 
         if self._is_ai_turn():
-            self.after(800, self._ai_move)
+            self.append_log("Les Blancs (IA) commencent — réflexion en cours…")
+            self.after(150, self._ai_move)
 
     # ── UI construction ──
 
@@ -496,7 +409,7 @@ class DameGUI(ctk.CTk):
         top_bar = ctk.CTkFrame(left, fg_color="transparent")
         top_bar.pack(fill="x", pady=(0, 2))
         self.label_tour = ctk.CTkLabel(
-            top_bar, text="Tour des Noirs (●)", font=("Arial", 20, "bold")
+            top_bar, text="Tour des Blancs (●)", font=("Arial", 20, "bold")
         )
         self.label_tour.pack(side="left")
         self.label_timer = ctk.CTkLabel(
@@ -734,7 +647,8 @@ class DameGUI(ctk.CTk):
         if piece:
             new_map[piece] = HL_CHAIN if self._chain_piece else HL_PIECE
         for m in moves:
-            new_map[(m[0], m[1])] = HL_MOVE
+            dest_color = m[3] if len(m) > 3 else HL_MOVE
+            new_map[(m[0], m[1])] = dest_color
         self.hover_piece = piece
         self.hover_moves = moves
         for cell in old:
@@ -767,19 +681,29 @@ class DameGUI(ctk.CTk):
         if self._game_over or self._is_ai_turn():
             return
         if self._chain_piece:
-            return
+            cc, cl = self._chain_piece
+            if (col, ligne) != (cc, cl):
+                return
         dests = {(m[0], m[1]) for m in self.hover_moves}
         if (col, ligne) in dests or (col, ligne) == self.hover_piece:
             return
         v = 1 if self.current_player == 1 else 0
         if not is_friendly(self.L, col, ligne, v):
             return
-        J = jeu_possible(self.L, col, ligne, DIAGS, v, None)
-        moves = get_moves(self.L, col, ligne, J, v)
-        if _any_capture_available(self.L, v, self.c, self.l):
-            moves = [m for m in moves if m[2]]
-            if not moves:
-                return
+        raw = ffdje.legal_moves_to_hover(
+            self.L, v, col, ligne, self.c, self.l, self._chain_piece
+        )
+        if not raw:
+            return
+        moves = [
+            (
+                t[0],
+                t[1],
+                t[2],
+                HL_FLUO_CAPTURE if t[3] else HL_MOVE,
+            )
+            for t in raw
+        ]
         self._apply_hover((col, ligne), moves)
 
     # ── move execution ──
@@ -789,6 +713,10 @@ class DameGUI(ctk.CTk):
             self._save_state()
 
         v = 1 if self.current_player == 1 else 0
+        if not ffdje.is_move_legal(
+            self.L, v, fc, fl, tc, tl, is_cap, self.c, self.l, self._chain_piece
+        ):
+            return False
 
         log_call(self, "is_friendly", ("L", fc, fl, v), True)
         J = jeu_possible(self.L, fc, fl, DIAGS, v, None)
@@ -796,7 +724,17 @@ class DameGUI(ctk.CTk):
 
         self._apply_hover(None, [])
 
-        captured = do_move(self.L, fc, fl, tc, tl, is_cap)
+        p_before = self.L[fc][fl][1]
+        captured = None
+        if is_cap:
+            captured = ffdje.apply_capture_no_promote(self.L, fc, fl, tc, tl)
+        else:
+            ffdje.apply_quiet_move(self.L, fc, fl, tc, tl, self.c)
+
+        promoted = False
+        if not is_cap and self.L[tc][tl][1] == 2 and p_before == 1:
+            promoted = True
+            self.append_log("Promotion en dame!")
 
         cells_to_redraw = {(fc, fl), (tc, tl)}
         if captured:
@@ -805,15 +743,6 @@ class DameGUI(ctk.CTk):
             self._update_score_label()
             self._flash_cell(captured[0], captured[1])
 
-        promoted = False
-        if self.L[tc][tl][1] == 1:
-            if (self.current_player == 1 and tc == self.c - 1) or (
-                self.current_player == 2 and tc == 0
-            ):
-                self.L[tc][tl][1] = 2
-                promoted = True
-                self.append_log("Promotion en dame!")
-
         self._last_move = ((fc, fl), (tc, tl))
         for cr, lr in cells_to_redraw:
             self._draw_cell(cr, lr)
@@ -821,12 +750,25 @@ class DameGUI(ctk.CTk):
         self.move_number += 1
         if is_cap:
             self._chain_count += 1
+
+        chain_continues = False
+        if is_cap:
+            nxt = ffdje.legal_chain_dests(self.L, v, tc, tl, self.c, self.l)
+            if nxt:
+                chain_continues = True
+            else:
+                ffdje.maybe_promote_end_of_turn(self.L, tc, tl, self.c)
+                if self.L[tc][tl][1] == 2 and p_before == 1:
+                    promoted = True
+                    self.append_log("Promotion en dame!")
+
         self._add_history(fc, fl, tc, tl, is_cap, captured, promoted)
 
-        if is_cap and not promoted and _has_captures(self.L, tc, tl, v):
+        if is_cap and chain_continues:
             self._chain_piece = (tc, tl)
-            J2 = jeu_possible(self.L, tc, tl, DIAGS, v, None)
-            chain_moves = [m for m in get_moves(self.L, tc, tl, J2, v) if m[2]]
+            chain_moves = [
+                (a, b, True, HL_FLUO_CAPTURE) for a, b in nxt
+            ]
             self._apply_hover((tc, tl), chain_moves)
             self.append_log(
                 f"Rafle! Capture en chaîne depuis {cell_name(tc, tl)}"
@@ -851,7 +793,7 @@ class DameGUI(ctk.CTk):
         if not dest or not self.hover_piece:
             return
         fc, fl = self.hover_piece
-        tc, tl, is_cap = dest
+        tc, tl, is_cap = dest[0], dest[1], dest[2]
         self._execute_move(fc, fl, tc, tl, is_cap)
 
     # ── AI ──
@@ -864,14 +806,14 @@ class DameGUI(ctk.CTk):
         )
 
     def _change_ai_mode(self, label):
+        self._bump_ai_gen()
         self._ai_mode = AI_MODES.get(label)
+        self._rebuild_ai()
         if self._ai_mode:
-            self.ai = SimpleAI(self._ai_mode, self.c, self.l)
             self.append_log(f"Mode IA activé: {label}")
             if self._is_ai_turn():
-                self.after(600, self._ai_move)
+                self.after(120, self._ai_move)
         else:
-            self.ai = None
             self.append_log("Mode 2 joueurs activé")
 
     def _ai_move(self):
@@ -880,8 +822,29 @@ class DameGUI(ctk.CTk):
         if self._chain_piece:
             self._ai_chain_step()
             return
+        if self._ai_busy:
+            return
         v = 0
-        move = self.ai.choose_move(self.L, v)
+        gen = self._ai_task_gen
+        Lsnap = _copy_board(self.L)
+        self._ai_busy = True
+        self.append_log("🤖 L'IA réfléchit…")
+
+        def work():
+            try:
+                move = self.ai.choose_move(Lsnap, v)
+            except Exception:
+                move = None
+            self.after(0, lambda m=move: self._on_ai_root_done(m, gen))
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _on_ai_root_done(self, move, gen):
+        if gen != self._ai_task_gen:
+            return
+        self._ai_busy = False
+        if not self._is_ai_turn():
+            return
         if not move:
             self.label_tour.configure(text="Les Noirs ont gagné!")
             self.append_log("=== IA bloquée. Les Noirs ont gagné! ===")
@@ -889,45 +852,78 @@ class DameGUI(ctk.CTk):
             self._play_victory_sound()
             return
         fc, fl, tc, tl, is_cap = move
-        self._apply_hover((fc, fl), [(tc, tl, is_cap)])
+        dest_bg = HL_FLUO_CAPTURE if is_cap else HL_MOVE
+        self._apply_hover((fc, fl), [(tc, tl, is_cap, dest_bg)])
         self.append_log(f"🤖 IA joue: {cell_name(fc, fl)} → {cell_name(tc, tl)}")
-        self.after(450, lambda: self._ai_execute(fc, fl, tc, tl, is_cap))
+        self.after(
+            450, lambda g=gen: self._ai_execute(fc, fl, tc, tl, is_cap, g)
+        )
 
-    def _ai_execute(self, fc, fl, tc, tl, is_cap):
+    def _ai_execute(self, fc, fl, tc, tl, is_cap, gen):
+        if gen != self._ai_task_gen:
+            return
         chain = self._execute_move(fc, fl, tc, tl, is_cap)
         if chain:
-            self.after(500, self._ai_chain_step)
+            self.after(500, lambda g=gen: self._ai_chain_after_move(g))
+
+    def _ai_chain_after_move(self, gen):
+        if gen != self._ai_task_gen:
+            return
+        self._ai_chain_step()
 
     def _ai_chain_step(self):
         if not self._chain_piece or self._game_over:
             return
+        if self._ai_busy:
+            return
         col, ligne = self._chain_piece
         v = 0
-        J = jeu_possible(self.L, col, ligne, DIAGS, v, None)
-        caps = [m for m in get_moves(self.L, col, ligne, J, v) if m[2]]
-        if not caps:
+        if not ffdje.legal_chain_dests(self.L, v, col, ligne, self.c, self.l):
             self._chain_piece = None
             self._chain_count = 0
             self._next_turn()
             return
-        if self._ai_mode == "difficile":
-            best, best_s = caps[0], float("-inf")
-            for m in caps:
-                Lc = _copy_board(self.L)
-                do_move(Lc, col, ligne, m[0], m[1], True)
-                s = self.ai._evaluate(Lc, v)
-                if s > best_s:
-                    best_s = s
-                    best = m
-            pick = best
-        else:
-            pick = random.choice(caps)
-        tc, tl, _ = pick
+        gen = self._ai_task_gen
+        Lsnap = _copy_board(self.L)
+        cl, ll = col, ligne
+        self._ai_busy = True
+
+        def work():
+            try:
+                dest = self.ai.choose_chain_capture(Lsnap, v, cl, ll)
+            except Exception:
+                dest = None
+            self.after(0, lambda d=dest: self._on_ai_chain_done(cl, ll, d, gen))
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _on_ai_chain_done(self, col, ligne, dest, gen):
+        if gen != self._ai_task_gen:
+            return
+        self._ai_busy = False
+        if not self._chain_piece or self._game_over:
+            return
+        if self._chain_piece != (col, ligne):
+            return
+        v = 0
+        if not ffdje.legal_chain_dests(self.L, v, col, ligne, self.c, self.l):
+            self._chain_piece = None
+            self._chain_count = 0
+            self._next_turn()
+            return
+        if not dest:
+            self._chain_piece = None
+            self._chain_count = 0
+            self._next_turn()
+            return
+        tc, tl = dest
         self.append_log(
             f"🤖 IA rafle: {cell_name(col, ligne)} → {cell_name(tc, tl)}"
         )
-        self._apply_hover((col, ligne), [(tc, tl, True)])
-        self.after(450, lambda: self._ai_execute(col, ligne, tc, tl, True))
+        self._apply_hover((col, ligne), [(tc, tl, True, HL_FLUO_CAPTURE)])
+        self.after(
+            450, lambda g=gen: self._ai_execute(col, ligne, tc, tl, True, g)
+        )
 
     # ── hint ──
 
@@ -937,7 +933,7 @@ class DameGUI(ctk.CTk):
         if self._hint_timer:
             self.after_cancel(self._hint_timer)
         v = 1 if self.current_player == 1 else 0
-        helper = SimpleAI("moyen", self.c, self.l)
+        helper = DraughtsAI("moyen", self.c, self.l)
         move = helper.choose_move(self.L, v)
         if not move:
             self.append_log("Aucun coup disponible!")
@@ -996,6 +992,7 @@ class DameGUI(ctk.CTk):
         )
 
     def _undo(self):
+        self._bump_ai_gen()
         if len(self.history_stack) <= 1:
             return
         if self._chain_piece:
@@ -1031,8 +1028,9 @@ class DameGUI(ctk.CTk):
     # ── new game ──
 
     def _new_game(self):
+        self._bump_ai_gen()
         self.L = create_board(self.c, self.l, self.N)
-        self.current_player = 1
+        self.current_player = 2
         self.hover_piece = None
         self.hover_moves = []
         self._game_over = False
@@ -1046,7 +1044,7 @@ class DameGUI(ctk.CTk):
         self._game_start = time.time()
         self._draw_all_pieces()
         self._update_score_label()
-        self.label_tour.configure(text="Tour des Noirs (●)")
+        self.label_tour.configure(text="Tour des Blancs (●)")
         self.hist_text.configure(state="normal")
         self.hist_text.delete("1.0", "end")
         self.hist_text.configure(state="disabled")
@@ -1056,6 +1054,8 @@ class DameGUI(ctk.CTk):
         self.append_log("=== Nouvelle partie ===")
         self._log_teams()
         self._save_state()
+        if self._is_ai_turn():
+            self.after(120, self._ai_move)
 
     # ── save / load ──
 
@@ -1085,6 +1085,7 @@ class DameGUI(ctk.CTk):
         self.append_log(f"Partie sauvegardée → {os.path.basename(path)}")
 
     def _load_game(self):
+        self._bump_ai_gen()
         path = filedialog.askopenfilename(
             title="Charger une partie",
             filetypes=[("JSON", "*.json")],
@@ -1168,7 +1169,7 @@ class DameGUI(ctk.CTk):
         r1 = team_exist(self.L, 1)
         r2 = team_exist(self.L, 2)
         v = 1 if self.current_player == 1 else 0
-        no_moves = not _get_all_moves(self.L, v, self.c, self.l)
+        no_moves = len(ffdje.legal_first_moves(self.L, v, self.c, self.l)) == 0
         if not r1 or (self.current_player == 1 and no_moves):
             self.label_tour.configure(text="Les Blancs ont gagné!")
             self.append_log("=== Les Blancs ont gagné! ===")
@@ -1180,7 +1181,7 @@ class DameGUI(ctk.CTk):
             self._game_over = True
             self._play_victory_sound()
         elif self._is_ai_turn():
-            self.after(600, self._ai_move)
+            self.after(120, self._ai_move)
 
     # ── timer ──
 

@@ -1,4 +1,4 @@
-# Jeu de Dames — Projet NSI Terminale
+# Jeu de Dames — Projet NSI
 
 **Équipe :** Bartosz, Fumimaro, Renan, Billy  
 **Année scolaire :** 2025–2026
@@ -121,30 +121,11 @@ jeu_de_Dame/
 | Ctrl+H | Afficher un indice |
 
 ---
-
-## Build Web (Pygbag)
-
-### Générer la version web
-
-```bash
-pip install pygbag
-pygbag src/gui_system/dame_gui_pygame.py
-```
-
-### Sortie de build
-
-- Les fichiers web sont générés dans `build/web/` (ou `build/` selon l'environnement).
-
-### Déployer gratuitement
-
-- **GitHub Pages** : publier le contenu de `build/web/` sur la branche `gh-pages` (ou dossier `docs/`).
-- **itch.io** : zipper le contenu de `build/web/` et l'uploader en projet HTML.
-
+###### **Indice (easter egg) :** en partie *contre l’IA*, si la fenêtre a le focus clavier, on murmure qu’un **mot synonyme d’« ultime »** — en français comme en anglais, tapé lettre par lettre — pourrait réveiller un adversaire plus tenace. Le journal de partie trahit parfois le secret…
 ---
 
 ## Prérequis
 
-- Python 3.8+
+- **Python 3.9+** recommandé (le code du dépôt reste compatible **3.8** en pratique ; **3.8** n’est plus maintenu par python.org — viser **3.10** à **3.13** en classe ou sur votre machine)
 - `customtkinter` (pour la version bureau) : `pip install customtkinter`
 - `pygame` (pour la version Pygame / web) : `pip install pygame`
-- `pygbag` (pour compiler en web) : `pip install pygbag`
