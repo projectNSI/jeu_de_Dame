@@ -14,7 +14,7 @@ pip install customtkinter
 python src/gui_system/dame_gui_ctk.py
 ```
 
-### Interface Pygame (bureau + compatible web)
+### Interface Pygame (bureau)
 
 ```bash
 pip install pygame
@@ -70,15 +70,17 @@ jeu_de_Dame/
 > **Commencez par** `information_pour_évaluer/guide_evaluation.md`  
 > Ce fichier donne un parcours d'évaluation rapide avec les liens vers chaque partie du projet.
 
-| Document | Contenu |
-|----------|---------|
-| `guide_evaluation.md` | Parcours d'évaluation, architecture, fonctionnalités |
-| `travail_de_chaque_membre.md` | Rôle et contributions détaillées de chaque élève |
-| `corrections/liste_corrections.md` | 14 bugs identifiés et corrigés avec code avant/après |
-| `analyse_technique/analyse_logique.md` | Analyse de `damedemain.py` (structure de données, algorithmes) |
-| `analyse_technique/architecture_gui.md` | Architecture du GUI, hover, undo, sauvegarde |
-| `analyse_technique/ia_et_fonctionnalites.md` | IA Minimax, effets sonores, thèmes |
-| `analyse_technique/plan_integration.md` | Stratégie d'intégration logique ↔ GUI |
+
+| Document                                     | Contenu                                                        |
+| -------------------------------------------- | -------------------------------------------------------------- |
+| `guide_evaluation.md`                        | Parcours d'évaluation, architecture, fonctionnalités           |
+| `travail_de_chaque_membre.md`                | Rôle et contributions détaillées de chaque élève               |
+| `corrections/liste_corrections.md`           | 14 bugs identifiés et corrigés avec code avant/après           |
+| `analyse_technique/analyse_logique.md`       | Analyse de `damedemain.py` (structure de données, algorithmes) |
+| `analyse_technique/architecture_gui.md`      | Architecture du GUI, hover, undo, sauvegarde                   |
+| `analyse_technique/ia_et_fonctionnalites.md` | IA Minimax, effets sonores, thèmes                             |
+| `analyse_technique/plan_integration.md`      | Stratégie d'intégration logique ↔ GUI                          |
+
 
 ---
 
@@ -111,17 +113,21 @@ jeu_de_Dame/
 
 ### Raccourcis clavier
 
-| Raccourci | Action |
-|-----------|--------|
-| Ctrl+Z | Annuler le dernier coup |
-| Ctrl+N | Nouvelle partie |
-| Ctrl+S | Sauvegarder |
-| Ctrl+O | Charger une partie |
-| Ctrl+E | Exporter l'historique |
-| Ctrl+H | Afficher un indice |
+
+| Raccourci | Action                  |
+| --------- | ----------------------- |
+| Ctrl+Z    | Annuler le dernier coup |
+| Ctrl+N    | Nouvelle partie         |
+| Ctrl+S    | Sauvegarder             |
+| Ctrl+O    | Charger une partie      |
+| Ctrl+E    | Exporter l'historique   |
+| Ctrl+H    | Afficher un indice      |
+
 
 ---
+
 ###### **Indice (easter egg) :** en partie *contre l’IA*, si la fenêtre a le focus clavier, on murmure qu’un **mot synonyme d’« ultime »** — en français comme en anglais, tapé lettre par lettre — pourrait réveiller un adversaire plus tenace. Le journal de partie trahit parfois le secret…
+
 ---
 
 ## Prérequis
@@ -129,3 +135,4 @@ jeu_de_Dame/
 - **Python 3.9+** recommandé (le code du dépôt reste compatible **3.8** en pratique ; **3.8** n’est plus maintenu par python.org — viser **3.10** à **3.13** en classe ou sur votre machine)
 - `customtkinter` (pour la version bureau) : `pip install customtkinter`
 - `pygame` (pour la version Pygame / web) : `pip install pygame`
+
