@@ -70,7 +70,22 @@ jeu_de_Dame/
 │   ├── travail_de_chaque_membre.md
 │   ├── guide_evaluation.md        ← Ce fichier
 │   ├── corrections/               ← Bugs corrigés
-│   └── analyse_technique/         ← Documentation technique
+│   └── analyse_technique/
+│       ├── 1_logic/
+│       │   ├── core/
+│       │   │   └── analyse_logique.md
+│       │   ├── ia_system/
+│       │   │   └── ia_et_fonctionnalites.md
+│       │   └── plan_integration.md
+│       ├── 2_gui/
+│       │   └── architecture_gui.md
+│       ├── 3_renan_billy_works/
+│       │   ├── renan_billy_bug_fixes.md
+│       │   ├── sumarry_sheet_renan_billy_fr.md
+│       │   └── explication_simple_pour_renan_billy.md
+│       └── jp/
+│           ├── AI・追加機能解説.md
+│           └── GUIコアロジック解説.md
 │
 ├── requirements.txt
 └── README.md
