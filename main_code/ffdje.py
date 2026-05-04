@@ -82,17 +82,32 @@ def apply_capture_no_promote(L, fc, fl, tc, tl):
 
 
 def apply_quiet_move(L, fc, fl, tc, tl, c_max):
-    """Simple move + immediate promotion if applicable (fin de coup)."""
+    """Simple move + immediate promotion if applicable (fin de coup).
+
+    Correction bug #7 / Renan bug #3 (promotion erronée, détectée par Renan, corrigée par Fumimaro):
+        Dans ce jeu, les pions avancent HORIZONTALEMENT (axe des colonnes):
+            Noirs  (couleur 1): progressent vers les colonnes croissantes → promus à tc == c_max-1
+            Blancs (couleur 2): progressent vers les colonnes décroissantes → promus à tc == 0
+        Problème original: la condition vérifiait les LIGNES (to_ligne == 0 or to_ligne == self.l-1),
+        ce qui déclenchait la promotion en atteignant le bord haut/bas (axe vertical), incorrect.
+        Correction: condition sur tc (colonne de destination) selon la couleur du pion.
+    """
     do_move(L, fc, fl, tc, tl, False)
-    tc, tl = tc, tl
     if L[tc][tl][1] == 1:
         color = L[tc][tl][0]
+        # Noirs (1) promus quand ils atteignent la dernière colonne (c_max-1, côté blanc)
+        # Blancs (2) promus quand ils atteignent la première colonne (0, côté noir)
         if (color == 1 and tc == c_max - 1) or (color == 2 and tc == 0):
             L[tc][tl][1] = 2
 
 
 def maybe_promote_end_of_turn(L, tc, tl, c_max):
-    """After full rafle or turn, crown man on last rank."""
+    """After full rafle or turn, crown man on last rank.
+
+    Même correction que apply_quiet_move (bug #7 / Renan bug #3):
+    promotion basée sur la colonne (tc) et non sur la ligne.
+    Appelée en fin de rafle pour les pions qui n'ont pas encore été promus.
+    """
     if L[tc][tl][1] == 1:
         color = L[tc][tl][0]
         if (color == 1 and tc == c_max - 1) or (color == 2 and tc == 0):

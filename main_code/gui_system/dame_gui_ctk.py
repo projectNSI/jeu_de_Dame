@@ -638,6 +638,12 @@ class DameGUI(ctk.CTk):
     # ── hover ──
 
     def _apply_hover(self, piece, moves):
+        # Correction bug #11 / Billy bug #4 (lag du GUI, détecté par Billy, corrigé par Fumimaro):
+        # Version originale: chaque événement <Enter> redessinait les 64 cases du plateau entier,
+        # ce qui provoquait un ralentissement croissant après une vingtaine de coups.
+        # Solution: mise à jour différentielle — on calcule l'ensemble des cases qui changent
+        # (old - new_map) et on ne redessine QUE celles-là, soit 2 à 4 cases au maximum.
+        # Gain: jusqu'à 32× moins d'opérations graphiques par événement souris.
         old = set()
         if self.hover_piece:
             old.add(self.hover_piece)
@@ -651,9 +657,11 @@ class DameGUI(ctk.CTk):
             new_map[(m[0], m[1])] = dest_color
         self.hover_piece = piece
         self.hover_moves = moves
+        # Effacer uniquement les cases qui ne font plus partie du nouveau hover
         for cell in old:
             if cell not in new_map:
                 self._set_bg(cell[0], cell[1])
+        # Colorier uniquement les nouvelles cases
         for cell, color in new_map.items():
             self._set_bg(cell[0], cell[1], color)
 
@@ -662,6 +670,14 @@ class DameGUI(ctk.CTk):
             self._apply_hover(None, [])
 
     def _schedule_clear(self):
+        # Correction bug #11 / Renan bug #1 (hover qui disparaît, détecté par Renan, corrigé par Fumimaro):
+        # Problème Tkinter: quand la souris passe d'un bouton A vers un bouton B,
+        # l'ordre des événements est: <Leave>(parent) → <Leave>(A) → <Enter>(B).
+        # Le <Leave> du cadre parent se déclenche AVANT le <Enter> du bouton enfant,
+        # ce qui effaçait les surbrillances vertes prématurément (avant d'arriver sur B).
+        # Solution: ne pas effacer immédiatement — programmer l'effacement avec un délai de 60 ms.
+        # Si un <Enter> arrive dans ce délai (cas normal), _cancel_clear() annule le timer.
+        # 60 ms est suffisant pour absorber la fenêtre de propagation des événements Tkinter.
         if self._clear_timer:
             self.after_cancel(self._clear_timer)
         self._clear_timer = self.after(60, self._do_scheduled_clear)
@@ -672,6 +688,9 @@ class DameGUI(ctk.CTk):
             self._clear_hover()
 
     def _cancel_clear(self):
+        # Annule le timer programmé par _schedule_clear() si un nouveau <Enter> arrive à temps.
+        # C'est la clé de la correction du bug #1 (Renan): le timer est annulé avant expiration,
+        # donc les surbrillances restent visibles lors du survol case à case.
         if self._clear_timer:
             self.after_cancel(self._clear_timer)
             self._clear_timer = None
@@ -722,6 +741,12 @@ class DameGUI(ctk.CTk):
         J = jeu_possible(self.L, fc, fl, DIAGS, v, None)
         log_call(self, "jeu_possible", ("L", fc, fl, "diags", v, None), J)
 
+        # Correction bug #12 / Renan bug #2 (surbrillances fantômes, détecté par Renan, corrigé par Fumimaro):
+        # Problème: après un clic, les cases vertes (hover_piece, hover_moves) restaient
+        # colorées car _draw_cell() relisait hover_piece/hover_moves encore non réinitialisés.
+        # Solution: appeler _apply_hover(None, []) AVANT le redessin pour forcer le nettoyage
+        # des variables de mémoire tampon (hover_piece → None, hover_moves → []).
+        # Sans cette ligne, les "fantômes" verts persistaient jusqu'au prochain événement souris.
         self._apply_hover(None, [])
 
         p_before = self.L[fc][fl][1]

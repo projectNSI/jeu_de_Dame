@@ -56,7 +56,8 @@ Le bug: Tkinter exécute l'événement `<Leave>` du parent AVANT le `<Enter>` du
 Utiliser une ` temporisation` au lieu d'effacer immédiatement:
 
 ```python
-# Fichier: dame_gui_ctk.py, lignes 664-672
+# Fichier: dame_gui_ctk.py, lignes 672-696
+# Trace de correction visible: commentaire "# Correction bug #11 / Renan bug #1" ligne 673
 
 # Nouveau système de gestion du hover
 def _schedule_clear(self):
@@ -179,14 +180,15 @@ Résultat: Les cases (2,3), (3,4), (4,5) restent VERTES car les variables n'ont 
 Ajouter UNE SEULE LIGNE qui nettoie AVANT de redessiner:
 
 ```python
-# CODE CORRIGÉ:
+# CODE CORRIGÉ (dame_gui_ctk.py, ligne 744-750):
+# Trace de correction visible: commentaire "# Correction bug #12 / Renan bug #2" ligne 744
 def _execute_move(self, fc, fl, tc, tl, is_cap, save=True):
     if save and not self._chain_piece:
         self._save_state()
-    
+
     # ... validations ...
-    
-    # NOUVELLE LIGNE CLÉE:
+
+    # NOUVELLE LIGNE CLÉE (ligne 750):
     self._apply_hover(None, [])  # Vider les surbrillages!
     
     # Maintenant self.hover_piece = None et self.hover_moves = []
@@ -405,7 +407,8 @@ Utiliser la MISE À JOUR DIFFÉRENTIELLE: ne toucher que ce qui change:
 
 ```python
 # CODE CORRIGÉ (OPTIMISÉ):
-# Fichier: dame_gui_ctk.py, lignes 640-654
+# Fichier: dame_gui_ctk.py, lignes 641-658
+# Trace de correction visible: commentaire "# Correction bug #11 / Billy bug #4" ligne 641
 
 def _apply_hover(self, piece, moves):
     """Mise à jour intelligente: seulement les cases qui changent"""
@@ -684,14 +687,14 @@ APRÈS: Capture libre (4 directions)
 
 ## RÉSUMÉ DE TOUS LES BUGS
 
-| Testeur | Bug | Cause | Correction |
-|---|---|---|---|
-| RENAN | Hover disparaît | Événement parent trop tôt | Timer 60ms avec annulation |
-| RENAN | Couleurs résiduelles | Variables hover non vidées | `_apply_hover(None, [])` préalable |
-| RENAN | Promotion mauvais axe | Teste ligne au lieu de colonne | Vérifier colonne =c_max |
-| BILLY | GUI ralentit | 64 updates à chaque survol | Mise à jour différentielle |
-| BILLY | Pas de son | Fonctionnalité absente | Système de beeps |
-| BILLY | Captures arrière impossibles | Filtre forward appliqué aux captures | Retirer filtre pour captures |
+| Testeur | Bug | Cause | Correction | Trace dans le code |
+|---|---|---|---|---|
+| RENAN | Hover disparaît | Événement parent trop tôt | Timer 60ms avec annulation | `dame_gui_ctk.py` ligne 672–696, commentaire bug #11 |
+| RENAN | Couleurs résiduelles | Variables hover non vidées | `_apply_hover(None, [])` préalable | `dame_gui_ctk.py` ligne 744–750, commentaire bug #12 |
+| RENAN | Promotion mauvais axe | Teste ligne au lieu de colonne | Vérifier colonne == c_max | `ffdje.py` ligne 87, docstring bug #7 |
+| BILLY | GUI ralentit | 64 updates à chaque survol | Mise à jour différentielle | `dame_gui_ctk.py` ligne 641, commentaire bug #4 |
+| BILLY | Pas de son | Fonctionnalité absente | Système de beeps en thread | `dame_gui_ctk.py`, `_play_sound()` |
+| BILLY | Captures arrière impossibles | Filtre forward sur les captures | Retirer filtre pour captures | `damedemain.py` ligne 132–138, assert + commentaire bug #4 |
 
 ---
 

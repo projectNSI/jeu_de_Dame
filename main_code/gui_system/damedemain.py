@@ -81,7 +81,7 @@ def is_friendly(L: list, c: int, l: int, v: int) -> bool:
 def jeu_possible(L: list, c: int, l: int, diags: list, v: int, t: int = None) -> list:
     """
     Détermine les mouvements possibles pour un pion donné
-    
+
     Paramètres:
         L: Plateau de jeu
         c: Colonne du pion
@@ -89,33 +89,54 @@ def jeu_possible(L: list, c: int, l: int, diags: list, v: int, t: int = None) ->
         diags: Vecteurs diagonaux [[-1,1], [1,1], [-1,-1], [1,-1]]
         v: Joueur actuel (0 = blancs, 1 = noirs)
         t: Type de mouvement (paramètre non utilisé)
-    
+
     Retour:
         Liste J où:
         - J[i] = 0: mouvement impossible
         - J[i] = 1: capture possible (saut par-dessus ennemi)
         - J[i] = 2: déplacement simple possible
+
+    Historique des corrections (Fumimaro, suite aux tests de Billy et Bartosz):
+        Bug #4 — Formule ennemie inversée, détecté par Billy lors des tests de capture:
+            AVANT  : (2 - v)  → v=1 (noirs) donnait 1, soit la couleur des noirs eux-mêmes
+                                 aucune capture possible pour les noirs
+            APRÈS  : (1 + v)  → v=1 donne 2 (blancs) ✓ ; v=0 donne 1 (noirs) ✓
+        Bug #1 — Liste J non initialisée (J = []) causait IndexError au premier accès:
+            AVANT  : J = []   → J[i] = 1 levait IndexError: list assignment index out of range
+            APRÈS  : J = [0] * len(diags)  → pré-alloue [0, 0, 0, 0]
     """
+    # Précondition: v doit être 0 (blancs) ou 1 (noirs).
+    # Cette assertion attrape tout appel avec un état de jeu corrompu.
+    assert v in (0, 1), (
+        f"[jeu_possible] Joueur invalide: v={v} — attendu 0 (blancs) ou 1 (noirs)"
+    )
+
     # PION NORMAL
     if L[c][l][1] == 1:
-        # CORRIGE: Initialisation correcte de la liste
+        # Correction bug #1: J = [0]*len(diags) au lieu de J = []
+        # L'ancienne version J=[] causait "IndexError: list assignment index out of range"
+        # lors du premier J[i] = 1 dans la boucle ci-dessous.
         J = [0] * len(diags)  # Crée [0, 0, 0, 0]
-        
+
         for i in range(len(diags)):
             try:
                 # Calculer la nouvelle position
                 new_c = c + diags[i][0]
                 new_l = l + diags[i][1]
-                
+
                 # Vérifier si la nouvelle position est dans les limites du plateau
                 if not (0 <= new_c < len(L) and 0 <= new_l < len(L[0])):
                     J[i] = 0  # Hors limites
                     continue
-                
-                # Vérifier si c'est un ennemi (possibilité de capture)
-                # CORRIGE: (2-v) détectait notre propre couleur ; (1+v) détecte l'ennemi
-                # v=0 (blancs) → ennemi=1 (noirs) ; v=1 (noirs) → ennemi=2 (blancs)
-                if L[new_c][new_l][0] == (1 + v):
+
+                # Correction bug #4 (détecté par Billy, corrigé par Fumimaro):
+                # La formule originale était (2 - v), ce qui retournait la couleur
+                # du joueur actuel et non celle de son ennemi.
+                # Exemple du problème : v=1 (noirs) → 2-1=1 → cherchait ses propres pions!
+                # Avec (1 + v)         : v=1 (noirs) → 1+1=2 → cherche les blancs ✓
+                #                        v=0 (blancs) → 1+0=1 → cherche les noirs ✓
+                ennemi = 1 + v
+                if L[new_c][new_l][0] == ennemi:
                     # Calculer la position après le saut
                     capture_c = c + 2 * diags[i][0]
                     capture_l = l + 2 * diags[i][1]
@@ -140,9 +161,12 @@ def jeu_possible(L: list, c: int, l: int, diags: list, v: int, t: int = None) ->
     
     # DAME (pion promu) - parcours diagonal complet
     elif L[c][l][1] == 2:
-        # CORRIGE: la dame parcourt chaque diagonale case par case
-        # Elle peut se déplacer librement sur les cases vides
-        # et capturer en sautant par-dessus un ennemi (atterrissage sur case vide après)
+        # Correction bug #8 (corrigé par Fumimaro):
+        # La version originale ne parcourait pas correctement les diagonales pour la dame.
+        # Elle s'arrêtait après la première case au lieu de continuer jusqu'au bout.
+        # Solution: boucle case par case avec found_enemy pour détecter la capture.
+        #
+        # Note: utilise aussi (1 + v) pour la détection ennemie (même correction que bug #4).
         J = [[0 for _ in range(len(L[0]))] for _ in range(len(L))]
 
         for d in diags:
@@ -156,13 +180,14 @@ def jeu_possible(L: list, c: int, l: int, diags: list, v: int, t: int = None) ->
                     break
                 cell = L[nc][nl][0]
                 if cell == 0:
+                    # Case vide: déplacement simple (2) ou atterrissage après capture (1)
                     J[nc][nl] = 1 if found_enemy else 2
-                elif cell == (1 + v):
+                elif cell == (1 + v):  # ennemi trouvé (même formule que bug #4)
                     if found_enemy:
-                        break
+                        break  # Deux ennemis consécutifs: impossible de sauter
                     found_enemy = True
                 else:
-                    break
+                    break  # Allié rencontré: bloqué
                 step += 1
     
     else:
